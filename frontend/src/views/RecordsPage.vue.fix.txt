@@ -1,0 +1,37 @@
+// 获取记录
+const fetchRecords = async (days) => {
+  try {
+    const response = await getAllRecords(days)
+    
+    // 初始化记录对象
+    const recordsByType = {
+      food: [],
+      exercise: [],
+      mood: [],
+      health: []
+    }
+    
+    // 将数组数据按类型分组
+    if (Array.isArray(response)) {
+      response.forEach(record => {
+        if (record.type && recordsByType[record.type]) {
+          recordsByType[record.type].push(record)
+        }
+      })
+    } else if (response.data && Array.isArray(response.data)) {
+      // 如果响应包装在data字段中
+      response.data.forEach(record => {
+        if (record.type && recordsByType[record.type]) {
+          recordsByType[record.type].push(record)
+        }
+      })
+    }
+    
+    // 更新记录状态
+    records.value = recordsByType
+    
+    console.log('获取到的记录:', records.value)
+  } catch (error) {
+    console.error('获取记录失败:', error)
+  }
+} 

@@ -1,0 +1,347 @@
+const express = require('express');
+const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
+
+const app = express();
+
+// 中间件
+app.use(cors());
+app.use(express.json());
+
+// 配置multer用于文件上传
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'public/uploads/')
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname))
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// 模拟用户数据存储
+const users = new Map();
+const records = new Map();
+
+// 获取完整的资源URL
+const getFullResourceUrl = (path) => {
+  const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+  return `${baseUrl}${path}`;
+};
+
+// 验证token中间件
+const authMiddleware = (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ message: '未提供认证令牌' });
+  }
+  
+  try {
+    const decoded = jwt.verify(token, 'your_jwt_secret');
+    req.user = { id: decoded.userId };
+    next();
+  } catch (error) {
+    res.status(401).json({ message: '无效的令牌' });
+  }
+};
+
+// 登录路由
+app.post('/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  console.log('登录请求:', { username });
+  
+  // 如果用户不存在，创建一个测试用户
+  if (!users.has(username)) {
+    users.set(username, {
+      id: '1',
+      username,
+      password,
+      email: 'test@example.com',
+      avatar: '/default-avatar.png'
+    });
+  }
+  
+  const user = users.get(username);
+  
+  if (!user || user.password !== password) {
+    return res.status(401).json({
+      success: false,
+      message: '用户名或密码错误'
+    });
+  }
+  
+  // 生成 token
+  const token = jwt.sign(
+    { userId: user.id },
+    'your_jwt_secret',
+    { expiresIn: '24h' }
+  );
+  
+  res.json({
+    success: true,
+    data: {
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: getFullResourceUrl(user.avatar)
+      }
+    }
+  });
+});
+
+// 注册路由
+app.post('/auth/register', (req, res) => {
+  const { username, email, password } = req.body;
+  
+  console.log('注册请求:', { username, email });
+  
+  if (users.has(username)) {
+    return res.status(400).json({
+      success: false,
+      message: '用户名已被使用'
+    });
+  }
+  
+  const user = {
+    id: Date.now().toString(),
+    username,
+    email,
+    password,
+    avatar: '/default-avatar.png'
+  };
+  
+  users.set(username, user);
+  
+  // 生成 token
+  const token = jwt.sign(
+    { userId: user.id },
+    'your_jwt_secret',
+    { expiresIn: '24h' }
+  );
+  
+  res.status(201).json({
+    success: true,
+    data: {
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: getFullResourceUrl(user.avatar)
+      }
+    }
+  });
+});
+
+// 头像上传路由
+app.post('/api/auth/avatar/:userId', authMiddleware, upload.single('avatar'), (req, res) => {
+  const { userId } = req.params;
+  
+  // 允许任何已认证的用户上传头像，不检查用户ID匹配
+  // if (req.user.id !== userId) {
+  //   return res.status(403).json({ message: '无权限修改其他用户的头像' });
+  // }
+  
+  if (!req.file) {
+    return res.status(400).json({ message: '未提供头像文件' });
+  }
+  
+  const avatarPath = `/uploads/${req.file.filename}`;
+  const user = Array.from(users.values()).find(u => u.id === req.user.id);
+  
+  if (user) {
+    user.avatar = avatarPath;
+    res.json({
+      success: true,
+      data: {
+        avatar_url: getFullResourceUrl(avatarPath)
+      }
+    });
+  } else {
+    res.status(404).json({ message: '用户不存在' });
+  }
+});
+
+// 获取所有记录
+app.get('/api/records/all', authMiddleware, (req, res) => {
+  const days = parseInt(req.query.days) || 7;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  
+  const userRecords = records.get(req.user.id) || [];
+  const filteredRecords = userRecords.filter(record => 
+    new Date(record.created_at) >= startDate
+  );
+  
+  res.json(filteredRecords);
+});
+
+// 创建记录
+app.post('/api/records', authMiddleware, (req, res) => {
+  const { type, ...recordData } = req.body;
+  
+  if (!type) {
+    return res.status(400).json({ message: '记录类型不能为空' });
+  }
+  
+  const newRecord = {
+    id: Date.now().toString(),
+    user: req.user.id,
+    type,
+    ...recordData,
+    created_at: new Date()
+  };
+  
+  if (!records.has(req.user.id)) {
+    records.set(req.user.id, []);
+  }
+  
+  records.get(req.user.id).push(newRecord);
+  res.status(201).json(newRecord);
+});
+
+// 获取报告摘要
+app.get('/api/reports/summary', authMiddleware, (req, res) => {
+  const userRecords = records.get(req.user.id) || [];
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  
+  // 过滤最近30天的记录
+  const recentRecords = userRecords.filter(record => 
+    new Date(record.created_at) >= thirtyDaysAgo
+  );
+  
+  // 生成模拟数据
+  const mockData = {
+    analysis: {
+      exerciseStats: {
+        totalMinutes: 840,
+        averagePerDay: 28,
+        mostFrequentType: 'walking',
+        intensityDistribution: {
+          light: 45,
+          medium: 35,
+          high: 20
+        }
+      },
+      moodStats: {
+        distribution: {
+          happy: 30,
+          calm: 25,
+          sad: 10,
+          angry: 5,
+          anxious: 15,
+          tired: 10,
+          excited: 5,
+          bored: 0
+        },
+        mostFrequent: 'happy'
+      },
+      healthStats: {
+        commonIssues: [
+          { type: 'sleep_bad', count: 3 },
+          { type: 'headache', count: 2 },
+          { type: 'fatigue', count: 4 }
+        ]
+      }
+    },
+    trends: {
+      exerciseTrends: {
+        weeklyMinutes: 210,
+        weeklyChange: 15,
+        intensityAvg: 'medium',
+        intensityChange: 5,
+        frequency: 5,
+        frequencyChange: 10
+      },
+      moodTrends: {
+        positiveRate: 65,
+        positiveChange: 8,
+        stability: 'high',
+        stabilityChange: 12,
+        previousMood: 'calm',
+        currentMood: 'happy'
+      },
+      healthTrends: {
+        sleepQuality: 'medium',
+        sleepChange: 5,
+        issueFrequency: 2,
+        issueChange: -15,
+        overallScore: 78,
+        scoreChange: 6
+      },
+      dateRange: {
+        start: thirtyDaysAgo,
+        end: new Date()
+      }
+    }
+  };
+  
+  res.json(mockData);
+});
+
+// 获取用户信息
+app.get('/api/user/info', authMiddleware, (req, res) => {
+  const user = Array.from(users.values()).find(u => u.id === req.user.id);
+  if (user) {
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatar: getFullResourceUrl(user.avatar)
+    });
+  } else {
+    res.status(404).json({ message: '用户不存在' });
+  }
+});
+
+// 获取记录统计
+app.get('/api/records/stats', authMiddleware, (req, res) => {
+  const days = parseInt(req.query.days) || 30;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  
+  const userRecords = records.get(req.user.id) || [];
+  const recentRecords = userRecords.filter(record => 
+    new Date(record.created_at) >= startDate
+  );
+  
+  // 计算统计数据
+  const stats = {
+    total: recentRecords.length,
+    byType: {
+      exercise: recentRecords.filter(r => r.type === 'exercise').length,
+      mood: recentRecords.filter(r => r.type === 'mood').length,
+      health: recentRecords.filter(r => r.type === 'health').length,
+      food: recentRecords.filter(r => r.type === 'food').length
+    },
+    lastRecord: recentRecords[0] || null,
+    periodStart: startDate,
+    periodEnd: new Date()
+  };
+  
+  res.json(stats);
+});
+
+// 提供静态文件访问
+app.use(express.static('public'));
+
+// 确保上传目录存在
+const fs = require('fs');
+const uploadDir = path.join(__dirname, 'public/uploads');
+if (!fs.existsSync(uploadDir)){
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// 启动服务器
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`服务器运行在端口 ${PORT}`);
+});

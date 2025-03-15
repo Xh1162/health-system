@@ -1,0 +1,27 @@
+app.post('/api/auth/avatar/:userId', authMiddleware, upload.single('avatar'), (req, res) => {
+  const { userId } = req.params;
+  
+  // 允许任何已认证的用户上传头像，不检查用户ID匹配
+  // if (req.user.id !== userId) {
+  //   return res.status(403).json({ message: '无权限修改其他用户的头像' });
+  // }
+  
+  if (!req.file) {
+    return res.status(400).json({ message: '未提供头像文件' });
+  }
+  
+  const avatarPath = `/uploads/${req.file.filename}`;
+  const user = Array.from(users.values()).find(u => u.id === req.user.id);
+  
+  if (user) {
+    user.avatar = avatarPath;
+    res.json({
+      success: true,
+      data: {
+        avatar_url: getFullResourceUrl(avatarPath)
+      }
+    });
+  } else {
+    res.status(404).json({ message: '用户不存在' });
+  }
+});
