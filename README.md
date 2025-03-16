@@ -22,6 +22,9 @@
 - Node.js
 - Express
 - JWT认证
+- Flask (Python后端API服务)
+- SQLAlchemy (ORM框架)
+- MongoDB (NoSQL数据库)
 
 ## 安装与运行
 
@@ -33,12 +36,20 @@ npm install
 npm run dev
 ```
 
-### 后端
+### Node.js后端
 
 ```bash
 cd backend
 npm install
 node server.js
+```
+
+### Flask后端 (可选)
+
+```bash
+cd backend
+pip install -r requirements.txt
+python run.py
 ```
 
 ## 项目结构
@@ -57,7 +68,13 @@ health_system/
 ├── backend/            # 后端代码
 │   ├── models/         # 数据模型
 │   ├── routes/         # 路由
-│   └── middleware/     # 中间件
+│   ├── middleware/     # 中间件
+│   ├── app/            # Flask应用
+│   │   ├── models/     # Flask数据模型
+│   │   ├── routes/     # Flask路由
+│   │   ├── services/   # 业务逻辑服务
+│   │   └── utils/      # 工具函数
+│   └── run.py          # Flask启动脚本
 └── public/             # 公共资源
     └── uploads/        # 上传文件存储
 ```

@@ -39,5 +39,22 @@ Thumbs.db
 !/public/uploads/.gitkeep
 
 # 数据文件
-/data/*.json 
+/data/*.json
+*.db
+instance/*.db
+*.sqlite
+*.sqlite3
+
+# 缓存
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.cache/
+
+# 前端构建文件
+frontend/dist/
+
 node_modules

@@ -1,42 +1,44 @@
-from flask import Flask
+import os
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy
 from config import config
+from datetime import timedelta
 from .models import db
-from .routes.auth import auth_bp
-from .routes.records import records_bp
-from .routes.reports import reports_bp
-from .routes.user import user_bp
 
 # 初始化扩展
 jwt = JWTManager()
 migrate = Migrate()
 
-def create_app(config_name='development'):
+def create_app(test_config=None):
     """
     应用工厂函数
     
     Args:
-        config_name: 配置名称，默认为'development'
+        test_config: 测试配置，默认为None
         
     Returns:
         Flask应用实例
     """
-    app = Flask(__name__)
+    app = Flask(__name__, instance_relative_config=True)
     
-    # 加载配置
-    app.config.from_object(config[config_name])
-    config[config_name].init_app(app)
+    # 配置数据库
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///health_system.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # CORS配置
-    CORS(app, resources={r"/api/*": {"origins": app.config['CORS_ORIGINS'], 
-                                    "methods": app.config['CORS_METHODS'],
-                                    "allow_headers": app.config['CORS_ALLOW_HEADERS'],
-                                    "supports_credentials": app.config['CORS_SUPPORTS_CREDENTIALS']}})
+    # 配置JWT
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'dev-secret-key')
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=24)
+    
+    # 配置上传文件夹
+    app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'public/uploads')
+    
+    # 确保上传文件夹存在
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
     # 初始化扩展
+    CORS(app)
     db.init_app(app)
     jwt.init_app(app)
     migrate.init_app(app, db)
@@ -49,7 +51,7 @@ def create_app(config_name='development'):
         
     @jwt.user_lookup_loader
     def user_lookup_callback(_jwt_header, jwt_data):
-        from .models import User
+        from .models.user import User
         identity = jwt_data["sub"]
         print(f"用户查找回调: {identity}")
         return User.query.filter_by(id=identity).one_or_none()
@@ -79,14 +81,64 @@ def create_app(config_name='development'):
             'message': '缺少令牌'
         }, 401
     
-    # 注册错误处理器
+    # 导入并注册错误处理器
     from .utils.errors import register_error_handlers
     register_error_handlers(app)
     
+    # 导入蓝图
+    from .routes.auth import auth_bp
+    from .routes.records import records_bp
+    from .routes.reports import reports_bp
+    from .routes.user import user_bp
+    from .routes.admin import admin_bp
+    
     # 注册蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(user_bp, url_prefix='/api/user')
     app.register_blueprint(records_bp, url_prefix='/api/records')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
-    app.register_blueprint(user_bp, url_prefix='/api/user')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    
+    # 配置前端静态文件
+    frontend_dist_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend/dist')
+    
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve_frontend(path):
+        if path and os.path.exists(os.path.join(frontend_dist_path, path)):
+            return send_from_directory(frontend_dist_path, path)
+        return send_from_directory(frontend_dist_path, 'index.html')
+    
+    # 添加静态文件服务
+    @app.route('/uploads/<path:filename>')
+    def uploaded_file(filename):
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    
+    # 创建数据库表
+    with app.app_context():
+        # 按照依赖关系顺序导入模型
+        from .models.user import User, UserProfile
+        from .models.record import Record, HealthStatus
+        from .models.report import Report, Recommendation
+        from .models.admin import SystemSetting, Announcement, ActivityLog
+        
+        # 创建表
+        db.create_all()
+        
+        # 创建初始管理员用户
+        from werkzeug.security import generate_password_hash
+        
+        admin = User.query.filter_by(username='admin').first()
+        if not admin:
+            admin = User(
+                username='admin',
+                email='admin@example.com',
+                password_hash=generate_password_hash('admin123'),
+                role='admin',
+                is_active=True
+            )
+            db.session.add(admin)
+            db.session.commit()
+            print('已创建初始管理员用户')
     
     return app 

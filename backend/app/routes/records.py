@@ -1,192 +1,235 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from ..services.records import RecordService
-from ..utils.errors import ValidationError, NotFoundError
+from datetime import datetime, timedelta
+
+from ..models import db, Record, HealthStatus
+from ..utils.errors import bad_request, not_found
 
 records_bp = Blueprint('records', __name__)
-
-@records_bp.route('/food', methods=['POST'])
-@jwt_required()
-def create_food_record():
-    """创建食物记录"""
-    try:
-        user_id = get_jwt_identity()
-        data = request.get_json()
-        record = RecordService.create_food_record(user_id, data)
-        
-        return jsonify({
-            'success': True,
-            'message': '食物记录已保存',
-            'data': record.to_dict()
-        })
-    except ValidationError as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 400
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'创建记录失败: {str(e)}'
-        }), 500
-
-@records_bp.route('/exercise', methods=['POST'])
-@jwt_required()
-def create_exercise_record():
-    """创建运动记录"""
-    try:
-        user_id = get_jwt_identity()
-        data = request.get_json()
-        record = RecordService.create_exercise_record(user_id, data)
-        
-        return jsonify({
-            'success': True,
-            'message': '运动记录已保存',
-            'data': record.to_dict()
-        })
-    except ValidationError as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 400
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'创建记录失败: {str(e)}'
-        }), 500
-
-@records_bp.route('/mood', methods=['POST'])
-@jwt_required()
-def create_mood_record():
-    """创建心情记录"""
-    try:
-        user_id = get_jwt_identity()
-        data = request.get_json()
-        record = RecordService.create_mood_record(user_id, data)
-        
-        return jsonify({
-            'success': True,
-            'message': '心情记录已保存',
-            'data': record.to_dict()
-        })
-    except ValidationError as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 400
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'创建记录失败: {str(e)}'
-        }), 500
-
-@records_bp.route('/health', methods=['POST'])
-@jwt_required()
-def create_health_record():
-    """创建健康记录"""
-    try:
-        user_id = get_jwt_identity()
-        data = request.get_json()
-        record = RecordService.create_health_record(user_id, data)
-        
-        return jsonify({
-            'success': True,
-            'message': '健康状况已记录',
-            'data': record.to_dict()
-        })
-    except ValidationError as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 400
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'创建记录失败: {str(e)}'
-        }), 500
 
 @records_bp.route('/all', methods=['GET'])
 @jwt_required()
 def get_all_records():
     """获取所有记录"""
-    try:
-        user_id = get_jwt_identity()
-        days = request.args.get('days', 7, type=int)
-        records = RecordService.get_all_records(user_id, days)
-        
-        return jsonify({
-            'success': True,
-            'data': records
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取记录失败: {str(e)}'
-        }), 500
+    user_id = get_jwt_identity()
+    days = request.args.get('days', 30, type=int)
+    
+    # 计算起始日期
+    start_date = datetime.utcnow() - timedelta(days=days)
+    
+    # 查询记录
+    records = Record.query.filter(
+        Record.user_id == user_id,
+        Record.created_at >= start_date
+    ).order_by(Record.created_at.desc()).all()
+    
+    return jsonify([record.to_dict() for record in records])
 
-@records_bp.route('/<string:record_type>/<int:record_id>', methods=['PUT'])
+@records_bp.route('/<string:type>', methods=['GET'])
 @jwt_required()
-def update_record(record_type, record_id):
+def get_records_by_type(type):
+    """获取特定类型的记录"""
+    user_id = get_jwt_identity()
+    days = request.args.get('days', 30, type=int)
+    
+    # 验证记录类型
+    valid_types = ['exercise', 'mood', 'health', 'food']
+    if type not in valid_types:
+        return bad_request('无效的记录类型')
+    
+    # 计算起始日期
+    start_date = datetime.utcnow() - timedelta(days=days)
+    
+    # 查询记录
+    records = Record.query.filter(
+        Record.user_id == user_id,
+        Record.type == type,
+        Record.created_at >= start_date
+    ).order_by(Record.created_at.desc()).all()
+    
+    return jsonify([record.to_dict() for record in records])
+
+@records_bp.route('/', methods=['POST'])
+@jwt_required()
+def create_record():
+    """创建记录"""
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    if not data:
+        return bad_request('无效的请求数据')
+    
+    record_type = data.get('type')
+    if not record_type:
+        return bad_request('记录类型不能为空')
+    
+    # 验证记录类型
+    valid_types = ['exercise', 'mood', 'health', 'food']
+    if record_type not in valid_types:
+        return bad_request('无效的记录类型')
+    
+    # 创建记录
+    record = Record(
+        user_id=user_id,
+        type=record_type,
+        note=data.get('note', ''),
+        record_date=datetime.utcnow()
+    )
+    
+    # 根据记录类型设置特定字段
+    if record_type == 'exercise':
+        record.exercise_type = data.get('exercise_type')
+        record.duration = data.get('duration')
+        record.intensity = data.get('intensity')
+    elif record_type == 'mood':
+        record.mood_type = data.get('mood_type')
+    elif record_type == 'health':
+        record.feeling = data.get('feeling')
+        # 处理健康状态
+        statuses = data.get('status', [])
+        if statuses:
+            for status in statuses:
+                health_status = HealthStatus(status=status)
+                record.health_statuses.append(health_status)
+    elif record_type == 'food':
+        record.food_name = data.get('food_name')
+        record.meal_time = data.get('meal_time')
+    
+    db.session.add(record)
+    db.session.commit()
+    
+    return jsonify(record.to_dict()), 201
+
+@records_bp.route('/<int:record_id>', methods=['PUT'])
+@jwt_required()
+def update_record(record_id):
     """更新记录"""
-    try:
-        user_id = get_jwt_identity()
-        data = request.get_json()
-        record = RecordService.update_record(user_id, record_type, record_id, data)
-        
-        return jsonify({
-            'success': True,
-            'message': '记录更新成功',
-            'data': record.to_dict()
-        })
-    except (ValidationError, NotFoundError) as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 400
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'更新记录失败: {str(e)}'
-        }), 500
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    if not data:
+        return bad_request('无效的请求数据')
+    
+    # 查找记录
+    record = Record.query.filter_by(id=record_id, user_id=user_id).first()
+    if not record:
+        return not_found('记录不存在或无权限')
+    
+    # 更新通用字段
+    if 'note' in data:
+        record.note = data['note']
+    
+    # 根据记录类型更新特定字段
+    if record.type == 'exercise':
+        if 'exercise_type' in data:
+            record.exercise_type = data['exercise_type']
+        if 'duration' in data:
+            record.duration = data['duration']
+        if 'intensity' in data:
+            record.intensity = data['intensity']
+    elif record.type == 'mood':
+        if 'mood_type' in data:
+            record.mood_type = data['mood_type']
+    elif record.type == 'health':
+        if 'feeling' in data:
+            record.feeling = data['feeling']
+        # 更新健康状态
+        if 'status' in data:
+            # 删除旧状态
+            for status in record.health_statuses:
+                db.session.delete(status)
+            # 添加新状态
+            for status in data['status']:
+                health_status = HealthStatus(record_id=record.id, status=status)
+                db.session.add(health_status)
+    elif record.type == 'food':
+        if 'food_name' in data:
+            record.food_name = data['food_name']
+        if 'meal_time' in data:
+            record.meal_time = data['meal_time']
+    
+    db.session.commit()
+    
+    return jsonify(record.to_dict())
 
-@records_bp.route('/<string:record_type>/<int:record_id>', methods=['DELETE'])
+@records_bp.route('/<int:record_id>', methods=['DELETE'])
 @jwt_required()
-def delete_record(record_type, record_id):
+def delete_record(record_id):
     """删除记录"""
-    try:
-        user_id = get_jwt_identity()
-        RecordService.delete_record(user_id, record_type, record_id)
-        
-        return jsonify({
-            'success': True,
-            'message': '记录删除成功'
-        })
-    except NotFoundError as e:
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 404
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'删除记录失败: {str(e)}'
-        }), 500
+    user_id = get_jwt_identity()
+    
+    # 查找记录
+    record = Record.query.filter_by(id=record_id, user_id=user_id).first()
+    if not record:
+        return not_found('记录不存在或无权限')
+    
+    db.session.delete(record)
+    db.session.commit()
+    
+    return jsonify({'message': '记录已删除'})
 
 @records_bp.route('/stats', methods=['GET'])
 @jwt_required()
 def get_records_stats():
     """获取记录统计信息"""
-    try:
-        user_id = get_jwt_identity()
-        days = request.args.get('days', 30, type=int)
-        stats = RecordService.get_records_stats(user_id, days)
-        
-        return jsonify({
-            'success': True,
-            'data': stats
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f'获取统计信息失败: {str(e)}'
-        }), 500 
+    user_id = get_jwt_identity()
+    days = request.args.get('days', 30, type=int)
+    
+    # 计算起始日期
+    start_date = datetime.utcnow() - timedelta(days=days)
+    
+    # 查询各类型记录数量
+    exercise_count = Record.query.filter(
+        Record.user_id == user_id,
+        Record.type == 'exercise',
+        Record.created_at >= start_date
+    ).count()
+    
+    mood_count = Record.query.filter(
+        Record.user_id == user_id,
+        Record.type == 'mood',
+        Record.created_at >= start_date
+    ).count()
+    
+    health_count = Record.query.filter(
+        Record.user_id == user_id,
+        Record.type == 'health',
+        Record.created_at >= start_date
+    ).count()
+    
+    food_count = Record.query.filter(
+        Record.user_id == user_id,
+        Record.type == 'food',
+        Record.created_at >= start_date
+    ).count()
+    
+    # 计算总运动时间
+    exercise_records = Record.query.filter(
+        Record.user_id == user_id,
+        Record.type == 'exercise',
+        Record.created_at >= start_date
+    ).all()
+    
+    total_exercise_minutes = sum(record.duration or 0 for record in exercise_records)
+    
+    # 获取最近的心情记录
+    recent_moods = Record.query.filter(
+        Record.user_id == user_id,
+        Record.type == 'mood',
+        Record.created_at >= start_date
+    ).order_by(Record.created_at.desc()).limit(5).all()
+    
+    return jsonify({
+        'total_records': exercise_count + mood_count + health_count + food_count,
+        'exercise_records': exercise_count,
+        'mood_records': mood_count,
+        'health_records': health_count,
+        'food_records': food_count,
+        'exercise_minutes': total_exercise_minutes,
+        'recent_moods': [
+            {
+                'type': mood.mood_type,
+                'date': mood.created_at.isoformat()
+            } for mood in recent_moods
+        ]
+    }) 

@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from ..models import FoodRecord, ExerciseRecord, MoodRecord, HealthRecord
+from ..models import Record, Report, Recommendation
 from ..utils.errors import ValidationError
 
 class ReportService:
@@ -25,48 +25,43 @@ class ReportService:
         elif period == 'year':
             start_date = end_date - timedelta(days=365)
         else:
-            raise ValidationError("无效的时间周期")
-            
-        # 获取记录数据 - 使用record_date字段
-        food_records = FoodRecord.query.filter(
-            FoodRecord.user_id == user_id,
-            FoodRecord.record_date >= start_date,
-            FoodRecord.record_date <= end_date
-        ).order_by(FoodRecord.record_date.desc()).all()
+            # 默认为一周
+            start_date = end_date - timedelta(days=7)
         
-        exercise_records = ExerciseRecord.query.filter(
-            ExerciseRecord.user_id == user_id,
-            ExerciseRecord.record_date >= start_date,
-            ExerciseRecord.record_date <= end_date
-        ).order_by(ExerciseRecord.record_date.desc()).all()
+        # 查询各类记录
+        records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.created_at >= start_date,
+            Record.created_at <= end_date
+        ).all()
         
-        mood_records = MoodRecord.query.filter(
-            MoodRecord.user_id == user_id,
-            MoodRecord.record_date >= start_date,
-            MoodRecord.record_date <= end_date
-        ).order_by(MoodRecord.record_date.desc()).all()
-        
-        health_records = HealthRecord.query.filter(
-            HealthRecord.user_id == user_id,
-            HealthRecord.record_date >= start_date,
-            HealthRecord.record_date <= end_date
-        ).order_by(HealthRecord.record_date.desc()).all()
+        # 按类型分类记录
+        food_records = [r for r in records if r.type == 'food']
+        exercise_records = [r for r in records if r.type == 'exercise']
+        mood_records = [r for r in records if r.type == 'mood']
+        health_records = [r for r in records if r.type == 'health']
         
         # 处理数据
-        food_distribution = ReportService._process_food_distribution(food_records)
-        food_trend = ReportService._process_food_trend(food_records)
-        exercise_duration = ReportService._process_exercise_duration(exercise_records)
-        exercise_intensity = ReportService._process_exercise_intensity(exercise_records)
-        mood_trend = ReportService._process_mood_trend(mood_records)
-        health_stats = ReportService._process_health_stats(health_records)
-        
         return {
-            'foodDistribution': food_distribution,
-            'foodTrend': food_trend,
-            'exerciseDuration': exercise_duration,
-            'exerciseIntensity': exercise_intensity,
-            'moodTrend': mood_trend,
-            'healthStats': health_stats
+            'period': {
+                'start': start_date.strftime('%Y-%m-%d'),
+                'end': end_date.strftime('%Y-%m-%d'),
+                'type': period
+            },
+            'food': {
+                'distribution': ReportService._process_food_distribution(food_records),
+                'trend': ReportService._process_food_trend(food_records)
+            },
+            'exercise': {
+                'duration': ReportService._process_exercise_duration(exercise_records),
+                'intensity': ReportService._process_exercise_intensity(exercise_records)
+            },
+            'mood': {
+                'trend': ReportService._process_mood_trend(mood_records)
+            },
+            'health': {
+                'stats': ReportService._process_health_stats(health_records)
+            }
         }
     
     @staticmethod
@@ -253,31 +248,31 @@ class ReportService:
         start_date = end_date - timedelta(days=days)
         
         # 获取食物记录
-        food_records = FoodRecord.query.filter(
-            FoodRecord.user_id == user_id,
-            FoodRecord.created_at >= start_date,
-            FoodRecord.created_at <= end_date
+        food_records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.created_at >= start_date,
+            Record.created_at <= end_date
         ).all()
         
         # 获取运动记录
-        exercise_records = ExerciseRecord.query.filter(
-            ExerciseRecord.user_id == user_id,
-            ExerciseRecord.created_at >= start_date,
-            ExerciseRecord.created_at <= end_date
+        exercise_records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.created_at >= start_date,
+            Record.created_at <= end_date
         ).all()
         
         # 获取心情记录
-        mood_records = MoodRecord.query.filter(
-            MoodRecord.user_id == user_id,
-            MoodRecord.created_at >= start_date,
-            MoodRecord.created_at <= end_date
+        mood_records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.created_at >= start_date,
+            Record.created_at <= end_date
         ).all()
         
         # 获取健康记录
-        health_records = HealthRecord.query.filter(
-            HealthRecord.user_id == user_id,
-            HealthRecord.created_at >= start_date,
-            HealthRecord.created_at <= end_date
+        health_records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.created_at >= start_date,
+            Record.created_at <= end_date
         ).all()
         
         print(f"记录数量 - 食物: {len(food_records)}, 运动: {len(exercise_records)}, 心情: {len(mood_records)}, 健康: {len(health_records)}")
@@ -363,22 +358,22 @@ class ReportService:
             raise ValidationError("无效的时间周期")
             
         # 获取记录数据
-        food_records = FoodRecord.query.filter(
-            FoodRecord.user_id == user_id,
-            FoodRecord.created_at >= start_date,
-            FoodRecord.created_at <= end_date
+        food_records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.created_at >= start_date,
+            Record.created_at <= end_date
         ).all()
         
-        exercise_records = ExerciseRecord.query.filter(
-            ExerciseRecord.user_id == user_id,
-            ExerciseRecord.created_at >= start_date,
-            ExerciseRecord.created_at <= end_date
+        exercise_records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.created_at >= start_date,
+            Record.created_at <= end_date
         ).all()
         
-        mood_records = MoodRecord.query.filter(
-            MoodRecord.user_id == user_id,
-            MoodRecord.created_at >= start_date,
-            MoodRecord.created_at <= end_date
+        mood_records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.created_at >= start_date,
+            Record.created_at <= end_date
         ).all()
         
         # 计算食物记录趋势
@@ -434,4 +429,19 @@ class ReportService:
         elif change_percent < -5:
             return '略有下降'
         else:
-            return '保持稳定' 
+            return '保持稳定'
+
+    @staticmethod
+    def get_recent_reports(user_id, limit=3):
+        """获取最近的报告
+        
+        Args:
+            user_id: 用户ID
+            limit: 获取的报告数量限制
+            
+        Returns:
+            list: 报告列表
+        """
+        # 这个方法在用户仪表板中被调用
+        # 返回一个空列表，实际实现会查询数据库
+        return [] 
