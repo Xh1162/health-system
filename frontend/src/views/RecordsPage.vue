@@ -83,10 +83,6 @@
             placeholder="搜索记录..."
             class="search-input"
           />
-          
-          <button @click="refreshRecords" class="refresh-btn" title="刷新记录">
-            🔄 刷新
-          </button>
         </div>
       </div>
 
@@ -1164,85 +1160,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
-
-// 添加刷新记录的函数
-const refreshRecords = () => {
-  fetchRecords(selectedDays.value)
-}
-
-// 提交记录
-const submitRecord = async () => {
-  console.log('提交记录，类型:', activeTab.value)
-  
-  try {
-    // 验证表单
-    if (!validateForm()) {
-      return
-    }
-    
-    // 显示加载状态
-    isSubmitting.value = true
-    
-    // 根据记录类型提交不同的数据
-    let response
-    
-    if (activeTab.value === 'food') {
-      console.log('提交食物记录:', foodForm.value)
-      response = await createFoodRecord(foodForm.value)
-    } else if (activeTab.value === 'exercise') {
-      console.log('提交运动记录:', exerciseForm.value)
-      
-      // 尝试直接使用axios
-      try {
-        const axios = (await import('axios')).default
-        const token = userStore.state.token
-        
-        console.log('使用axios直接提交，token:', token)
-        
-        const axiosResponse = await axios({
-          method: 'post',
-          url: 'http://localhost:5007/api/records',
-          data: { type: 'exercise', ...exerciseForm.value },
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token ? `Bearer ${token}` : ''
-          }
-        })
-        
-        console.log('axios响应:', axiosResponse)
-        response = axiosResponse.data
-      } catch (axiosError) {
-        console.error('axios错误:', axiosError)
-        throw axiosError
-      }
-    } else if (activeTab.value === 'mood') {
-      console.log('提交心情记录:', moodForm.value)
-      response = await createMoodRecord(moodForm.value)
-    } else if (activeTab.value === 'health') {
-      console.log('提交健康记录:', healthForm.value)
-      response = await createHealthRecord(healthForm.value)
-    }
-    
-    console.log('提交响应:', response)
-    
-    // 重置表单
-    resetForm()
-    
-    // 显示成功消息
-    ElMessage.success('记录添加成功')
-    
-    // 刷新记录列表
-    fetchRecords()
-  } catch (error) {
-    console.error('提交记录失败:', error)
-    
-    // 显示错误消息
-    ElMessage.error(`提交失败: ${error.message || '未知错误'}`)
-  } finally {
-    // 隐藏加载状态
-    isSubmitting.value = false
-  }
-}
 </script>
 
 <style scoped>
@@ -1553,20 +1470,6 @@ h1 {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.refresh-btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 1rem;
-  color: #64748b;
-  transition: color 0.3s ease;
-}
-
-.refresh-btn:hover {
-  color: #3b82f6;
 }
 
 /* 记录列表样式 */
