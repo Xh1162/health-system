@@ -211,6 +211,17 @@
           <button class="close-btn" @click="closeDialog">×</button>
         </div>
 
+        <!-- 日期选择器 - 添加到所有记录表单的顶部 -->
+        <div class="section-title">选择日期</div>
+        <div class="date-selector">
+          <input 
+            type="date" 
+            v-model="selectedDate"
+            class="date-input"
+            :max="maxDate"
+          />
+        </div>
+
         <!-- 食物记录 -->
         <div v-if="recordType === 'food'" class="record-form">
           <div class="section-title">用餐时间</div>
@@ -554,6 +565,7 @@ const closeDialog = () => {
 
 const resetForm = () => {
   // 重置表单状态
+  selectedDate.value = today.toISOString().split('T')[0] // 重置为今天
   selectedMealTime.value = ''
   foodName.value = ''
   foodNote.value = ''
@@ -614,7 +626,8 @@ const submitRecord = async () => {
       const data = {
         food_name: foodName.value,
         meal_time: selectedMealTime.value,
-        note: foodNote.value
+        note: foodNote.value,
+        record_date: selectedDate.value // 添加选择的日期
       }
       
       console.log('提交食物记录数据:', data)
@@ -637,7 +650,8 @@ const submitRecord = async () => {
         exercise_type: selectedExercise.value,
         duration: parseInt(exerciseDuration.value),
         intensity: selectedIntensity.value || 'medium',
-        note: exerciseNote.value
+        note: exerciseNote.value,
+        record_date: selectedDate.value // 添加选择的日期
       }
       
       console.log('提交运动记录数据:', data)
@@ -654,7 +668,8 @@ const submitRecord = async () => {
       // 准备数据
       const data = {
         mood_type: selectedMood.value,
-        note: moodNote.value
+        note: moodNote.value,
+        record_date: selectedDate.value // 添加选择的日期
       }
       
       console.log('提交心情记录数据:', data)
@@ -672,7 +687,8 @@ const submitRecord = async () => {
       const data = {
         feeling: selectedFeeling.value,
         status: selectedStatus.value,
-        note: healthNote.value
+        note: healthNote.value,
+        record_date: selectedDate.value // 添加选择的日期
       }
       
       console.log('提交健康记录数据:', data)
@@ -963,6 +979,11 @@ const fetchAnnouncements = () => {
   // 这里可以添加获取公告的逻辑
   console.log('获取公告')
 }
+
+// 日期选择器相关状态
+const today = new Date()
+const maxDate = ref(today.toISOString().split('T')[0]) // 今天的日期，格式为YYYY-MM-DD
+const selectedDate = ref(today.toISOString().split('T')[0]) // 默认选择今天
 </script>
 
 <style scoped>
@@ -3151,5 +3172,36 @@ const fetchAnnouncements = () => {
 
 .item-icon {
   font-size: 1.1rem;
+}
+
+.date-selector {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 24px;
+}
+
+.date-input {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 17px;
+  border: 1px solid #e5e5e7;
+  border-radius: 12px;
+  background: #fff;
+  color: #1d1d1f;
+  font-family: inherit;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #0071e3;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
+}
+
+.section-title {
+  font-weight: 600;
+  color: #1d1d1f;
+  margin-bottom: 12px;
+  font-size: 17px;
 }
 </style> 

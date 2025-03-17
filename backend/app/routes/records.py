@@ -90,12 +90,27 @@ def create_record():
             print(f"无效的记录类型: {record_type}")
             return bad_request('无效的记录类型')
         
+        # 处理记录日期
+        record_date = data.get('record_date')
+        if record_date:
+            try:
+                # 将字符串转换为日期对象
+                record_date = datetime.strptime(record_date, '%Y-%m-%d')
+                print(f"使用用户选择的日期: {record_date}")
+            except ValueError:
+                print(f"无效的日期格式: {record_date}")
+                record_date = datetime.utcnow()
+                print(f"使用当前时间作为记录日期: {record_date}")
+        else:
+            record_date = datetime.utcnow()
+            print(f"未提供日期，使用当前时间: {record_date}")
+        
         # 创建记录
         record = Record(
             user_id=user_id,
             type=record_type,
             note=data.get('note', ''),
-            record_date=datetime.utcnow()
+            record_date=record_date
         )
         
         # 根据记录类型设置特定字段
