@@ -1,7 +1,10 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
+from werkzeug.utils import secure_filename
 from datetime import datetime
+import os
+import uuid
 
 from ..models import db, User, UserProfile, Announcement
 from ..utils.errors import ValidationError, AuthenticationError, bad_request, not_found
@@ -215,4 +218,54 @@ def get_user_dashboard():
         'announcements': [a.to_dict() for a in announcements],
         'stats': stats,
         'recent_reports': recent_reports
+    })
+
+@user_bp.route('/avatar', methods=['POST'])
+@jwt_required()
+def upload_avatar():
+    """上传用户头像"""
+    user_id = get_jwt_identity()
+    
+    # 查询用户
+    user = User.query.get(user_id)
+    if not user:
+        return not_found('用户不存在')
+    
+    # 检查是否有文件上传
+    if 'avatar' not in request.files:
+        return bad_request('未找到头像文件')
+    
+    file = request.files['avatar']
+    
+    # 如果用户没有选择文件，浏览器也会提交一个空的文件
+    if file.filename == '':
+        return bad_request('未选择文件')
+    
+    # 检查文件类型
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+    if not '.' in file.filename or file.filename.rsplit('.', 1)[1].lower() not in allowed_extensions:
+        return bad_request('不支持的文件类型')
+    
+    # 生成安全的文件名
+    filename = secure_filename(file.filename)
+    # 添加唯一标识符，避免文件名冲突
+    unique_filename = f"{uuid.uuid4().hex}_{filename}"
+    
+    # 确保上传文件夹存在
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+    os.makedirs(upload_folder, exist_ok=True)
+    
+    # 保存文件
+    file_path = os.path.join(upload_folder, unique_filename)
+    file.save(file_path)
+    
+    # 更新用户头像URL
+    avatar_url = f"/uploads/{unique_filename}"
+    user.avatar = avatar_url
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': '头像上传成功',
+        'avatar_url': avatar_url
     }) 

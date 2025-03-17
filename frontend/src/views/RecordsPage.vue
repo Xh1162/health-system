@@ -551,6 +551,7 @@ import { getAllRecords, updateFoodRecord, updateExerciseRecord, updateMoodRecord
 import { useRouter } from 'vue-router'
 import UserAvatar from '../components/UserAvatar.vue'
 import userStore from '../stores/userStore'
+import { ElMessage } from 'element-plus'
 
 const records = ref({
   food: [],
@@ -1049,14 +1050,49 @@ const saveNewRecord = async () => {
       recordToSave.record_date = recordToSave.record_date.split('T')[0]
     }
 
-    const createFunctions = {
-      food: createFoodRecord,
-      exercise: createExerciseRecord,
-      mood: createMoodRecord,
-      health: createHealthRecord
+    console.log('保存记录，类型:', selectedRecordType.value, '数据:', recordToSave)
+    
+    let response
+    
+    // 尝试使用fetch直接提交
+    try {
+      const token = userStore.state.token
+      console.log('使用fetch直接提交，token:', token)
+      
+      // 使用相对路径，避免硬编码端口
+      const fetchResponse = await fetch('/api/records', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ 
+          type: selectedRecordType.value, 
+          ...recordToSave 
+        })
+      })
+      
+      if (!fetchResponse.ok) {
+        throw new Error(`HTTP错误: ${fetchResponse.status}`)
+      }
+      
+      response = await fetchResponse.json()
+      console.log('fetch响应:', response)
+    } catch (fetchError) {
+      console.error('fetch错误:', fetchError)
+      
+      // 如果fetch失败，尝试使用API函数
+      console.log('尝试使用API函数')
+      const createFunctions = {
+        food: createFoodRecord,
+        exercise: createExerciseRecord,
+        mood: createMoodRecord,
+        health: createHealthRecord
+      }
+      
+      response = await createFunctions[selectedRecordType.value](recordToSave)
     }
     
-    const response = await createFunctions[selectedRecordType.value](recordToSave)
     console.log('保存记录响应:', response)
     
     // 检查响应是否有效
@@ -1074,7 +1110,7 @@ const saveNewRecord = async () => {
     }
   } catch (error) {
     console.error('保存记录失败:', error)
-    alert('保存记录失败，请重试')
+    alert('保存记录失败，请重试: ' + (error.message || '未知错误'))
   }
 }
 
@@ -1128,6 +1164,80 @@ onUnmounted(() => {
 // 添加刷新记录的函数
 const refreshRecords = () => {
   fetchRecords(selectedDays.value)
+}
+
+// 提交记录
+const submitRecord = async () => {
+  console.log('提交记录，类型:', activeTab.value)
+  
+  try {
+    // 验证表单
+    if (!validateForm()) {
+      return
+    }
+    
+    // 显示加载状态
+    isSubmitting.value = true
+    
+    // 根据记录类型提交不同的数据
+    let response
+    
+    if (activeTab.value === 'food') {
+      console.log('提交食物记录:', foodForm.value)
+      response = await createFoodRecord(foodForm.value)
+    } else if (activeTab.value === 'exercise') {
+      console.log('提交运动记录:', exerciseForm.value)
+      
+      // 尝试直接使用axios
+      try {
+        const axios = (await import('axios')).default
+        const token = userStore.state.token
+        
+        console.log('使用axios直接提交，token:', token)
+        
+        const axiosResponse = await axios({
+          method: 'post',
+          url: 'http://localhost:5007/api/records',
+          data: { type: 'exercise', ...exerciseForm.value },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token ? `Bearer ${token}` : ''
+          }
+        })
+        
+        console.log('axios响应:', axiosResponse)
+        response = axiosResponse.data
+      } catch (axiosError) {
+        console.error('axios错误:', axiosError)
+        throw axiosError
+      }
+    } else if (activeTab.value === 'mood') {
+      console.log('提交心情记录:', moodForm.value)
+      response = await createMoodRecord(moodForm.value)
+    } else if (activeTab.value === 'health') {
+      console.log('提交健康记录:', healthForm.value)
+      response = await createHealthRecord(healthForm.value)
+    }
+    
+    console.log('提交响应:', response)
+    
+    // 重置表单
+    resetForm()
+    
+    // 显示成功消息
+    ElMessage.success('记录添加成功')
+    
+    // 刷新记录列表
+    fetchRecords()
+  } catch (error) {
+    console.error('提交记录失败:', error)
+    
+    // 显示错误消息
+    ElMessage.error(`提交失败: ${error.message || '未知错误'}`)
+  } finally {
+    // 隐藏加载状态
+    isSubmitting.value = false
+  }
 }
 </script>
 

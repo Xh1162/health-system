@@ -49,56 +49,90 @@ def get_records_by_type(type):
     
     return jsonify([record.to_dict() for record in records])
 
-@records_bp.route('/', methods=['POST'])
-@jwt_required()
+@records_bp.route('', methods=['POST', 'OPTIONS'])
+@jwt_required(optional=True)
 def create_record():
     """创建记录"""
-    user_id = get_jwt_identity()
-    data = request.get_json()
-    
-    if not data:
-        return bad_request('无效的请求数据')
-    
-    record_type = data.get('type')
-    if not record_type:
-        return bad_request('记录类型不能为空')
-    
-    # 验证记录类型
-    valid_types = ['exercise', 'mood', 'health', 'food']
-    if record_type not in valid_types:
-        return bad_request('无效的记录类型')
-    
-    # 创建记录
-    record = Record(
-        user_id=user_id,
-        type=record_type,
-        note=data.get('note', ''),
-        record_date=datetime.utcnow()
-    )
-    
-    # 根据记录类型设置特定字段
-    if record_type == 'exercise':
-        record.exercise_type = data.get('exercise_type')
-        record.duration = data.get('duration')
-        record.intensity = data.get('intensity')
-    elif record_type == 'mood':
-        record.mood_type = data.get('mood_type')
-    elif record_type == 'health':
-        record.feeling = data.get('feeling')
-        # 处理健康状态
-        statuses = data.get('status', [])
-        if statuses:
-            for status in statuses:
-                health_status = HealthStatus(status=status)
-                record.health_statuses.append(health_status)
-    elif record_type == 'food':
-        record.food_name = data.get('food_name')
-        record.meal_time = data.get('meal_time')
-    
-    db.session.add(record)
-    db.session.commit()
-    
-    return jsonify(record.to_dict()), 201
+    try:
+        # 处理OPTIONS请求
+        if request.method == 'OPTIONS':
+            print("收到OPTIONS预检请求，直接返回200")
+            # 不添加额外的CORS头部，让Flask-CORS处理
+            return '', 200
+            
+        # 验证JWT
+        user_id = get_jwt_identity()
+        if not user_id:
+            print("未提供有效的JWT令牌")
+            return jsonify({
+                'success': False,
+                'message': '未授权，请先登录'
+            }), 401
+            
+        print(f"创建记录API被调用，用户ID: {user_id}")
+        
+        # 获取请求数据
+        data = request.get_json()
+        print(f"请求数据: {data}")
+        
+        if not data:
+            print("无效的请求数据")
+            return bad_request('无效的请求数据')
+        
+        record_type = data.get('type')
+        if not record_type:
+            print("记录类型不能为空")
+            return bad_request('记录类型不能为空')
+        
+        # 验证记录类型
+        valid_types = ['exercise', 'mood', 'health', 'food']
+        if record_type not in valid_types:
+            print(f"无效的记录类型: {record_type}")
+            return bad_request('无效的记录类型')
+        
+        # 创建记录
+        record = Record(
+            user_id=user_id,
+            type=record_type,
+            note=data.get('note', ''),
+            record_date=datetime.utcnow()
+        )
+        
+        # 根据记录类型设置特定字段
+        if record_type == 'exercise':
+            record.exercise_type = data.get('exercise_type')
+            record.duration = data.get('duration')
+            record.intensity = data.get('intensity')
+        elif record_type == 'mood':
+            record.mood_type = data.get('mood_type')
+        elif record_type == 'health':
+            record.feeling = data.get('feeling')
+            # 处理健康状态
+            statuses = data.get('status', [])
+            if statuses:
+                for status in statuses:
+                    health_status = HealthStatus(status=status)
+                    record.health_statuses.append(health_status)
+        elif record_type == 'food':
+            record.food_name = data.get('food_name')
+            record.meal_time = data.get('meal_time')
+        
+        # 保存记录
+        db.session.add(record)
+        db.session.commit()
+        
+        # 返回成功响应
+        result = record.to_dict()
+        print(f"记录创建成功: {result}")
+        return jsonify(result), 201
+    except Exception as e:
+        # 回滚事务
+        db.session.rollback()
+        print(f"创建记录时发生错误: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'创建记录失败: {str(e)}'
+        }), 500
 
 @records_bp.route('/<int:record_id>', methods=['PUT'])
 @jwt_required()

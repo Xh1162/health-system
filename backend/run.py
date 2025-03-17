@@ -8,10 +8,13 @@ from app.models import db
 load_dotenv()
 
 # 创建应用实例
-app = create_app(os.getenv('FLASK_ENV', 'development'))
+app = create_app()
 migrate = Migrate(app, db)
 
 if __name__ == '__main__':
-    port = 5006  # 直接设置端口为5006
+    # 强制使用5007端口
+    port = 5007
     print(f"启动Flask服务器，端口: {port}")
+    
+    # 启动应用，允许所有主机访问
     app.run(host='0.0.0.0', port=port, debug=True)

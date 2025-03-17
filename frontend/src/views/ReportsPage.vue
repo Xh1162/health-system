@@ -78,6 +78,7 @@ import DataAnalysis from '../components/reports/DataAnalysis.vue'
 import TrendAnalysis from '../components/reports/TrendAnalysis.vue'
 import Recommendations from '../components/reports/Recommendations.vue'
 import userStore from '../stores/userStore'
+import { getReportsSummary } from '../api/reports'
 
 const router = useRouter()
 const showUserMenu = ref(false)
@@ -216,59 +217,45 @@ const fetchReportData = async () => {
   error.value = null
   
   try {
-    // 在开发环境中直接使用模拟数据
-    console.log('使用模拟数据进行开发')
-    useMockData()
-    
-    /* 
-    // 实际API调用代码，暂时注释掉
-    const token = localStorage.getItem('token') || 'mock_token_123456'
-    
-    if (!token) {
-      throw new Error('未登录，请先登录')
-    }
-    
-    const response = await fetch('http://localhost:5000/api/reports/summary', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    })
-    
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('token')
-        router.push('/login')
-        throw new Error('登录已过期，请重新登录')
-      }
-      throw new Error('获取报告数据失败')
-    }
-    
-    const data = await response.json()
-    console.log('获取到的报告数据:', data)
-    
-    if (!data || ((!data.analysis || Object.keys(data.analysis).length === 0) && 
-                 (!data.trends || Object.keys(data.trends).length === 0))) {
-      console.log('使用模拟数据，因为API返回为空')
+    // 检查是否有token
+    if (!userStore.state.token) {
+      console.log('未登录，使用模拟数据')
       useMockData()
-    } else {
-      // 更新分析数据
-      if (data.analysis && typeof data.analysis === 'object') {
-        analysisData.value = {
-          ...analysisData.value,
-          ...data.analysis
-        }
-      }
-      
-      // 更新趋势数据
-      if (data.trends && typeof data.trends === 'object') {
-        trendData.value = {
-          ...trendData.value,
-          ...data.trends
-        }
-      }
+      return
     }
-    */
+    
+    // 尝试从API获取数据
+    try {
+      const data = await getReportsSummary()
+      console.log('获取到的报告数据:', data)
+      
+      if (!data || ((!data.analysis || Object.keys(data.analysis).length === 0) && 
+                   (!data.trends || Object.keys(data.trends).length === 0))) {
+        console.log('API返回为空，使用模拟数据')
+        useMockData()
+      } else {
+        // 更新分析数据
+        if (data.analysis && typeof data.analysis === 'object') {
+          analysisData.value = {
+            ...analysisData.value,
+            ...data.analysis
+          }
+        }
+        
+        // 更新趋势数据
+        if (data.trends && typeof data.trends === 'object') {
+          trendData.value = {
+            ...trendData.value,
+            ...data.trends
+          }
+        }
+      }
+    } catch (apiError) {
+      console.error('API调用失败:', apiError)
+      // 在开发环境中使用模拟数据
+      console.log('使用模拟数据，因为API调用失败')
+      useMockData()
+    }
   } catch (error) {
     console.error('获取报告数据失败:', error)
     error.value = error.message || '获取数据时发生错误'

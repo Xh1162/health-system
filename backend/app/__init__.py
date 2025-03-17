@@ -37,8 +37,16 @@ def create_app(test_config=None):
     # 确保上传文件夹存在
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # 初始化扩展
-    CORS(app)
+    # 配置CORS，完全开放，解决预检请求问题
+    CORS(app, 
+         origins=["http://localhost:3005", "http://localhost:3006", "*"],
+         allow_headers=["Content-Type", "Authorization"],
+         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+         expose_headers=["Content-Type", "Authorization"],
+         supports_credentials=False,
+         max_age=86400,  # 预检请求缓存24小时
+         automatic_options=True)  # 自动处理OPTIONS请求
+    
     db.init_app(app)
     jwt.init_app(app)
     migrate.init_app(app, db)
@@ -113,6 +121,29 @@ def create_app(test_config=None):
     @app.route('/uploads/<path:filename>')
     def uploaded_file(filename):
         return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    
+    # 添加默认头像路由
+    @app.route('/default-avatar.png')
+    def default_avatar():
+        # 打印调试信息
+        print("请求默认头像")
+        try:
+            # 确保上传文件夹存在
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            
+            # 检查默认头像文件是否存在
+            avatar_path = os.path.join(app.config['UPLOAD_FOLDER'], 'default-avatar.png')
+            if not os.path.exists(avatar_path):
+                # 如果不存在，创建一个空文件
+                with open(avatar_path, 'wb') as f:
+                    f.write(b'')
+                print(f"创建了默认头像文件: {avatar_path}")
+            
+            return send_from_directory(app.config['UPLOAD_FOLDER'], 'default-avatar.png')
+        except Exception as e:
+            print(f"提供默认头像时出错: {str(e)}")
+            # 返回一个简单的响应，避免500错误
+            return "", 200
     
     # 创建数据库表
     with app.app_context():

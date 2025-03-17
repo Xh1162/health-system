@@ -189,6 +189,7 @@ import { getRecordsStats, getAllRecords } from '../api/records'
 import { useRouter } from 'vue-router'
 import userStore from '../stores/userStore'
 import { ElMessage } from 'element-plus'
+import { uploadAvatar } from '../api/user'
 
 // 用户基本信息
 const username = ref(userStore.state.username || '')
@@ -438,57 +439,28 @@ const handleAvatarChange = async (event) => {
     // 显示上传中提示
     alert('头像上传中，请稍候...')
     
-    // 使用原生fetch API上传
-    const formData = new FormData()
-    formData.append('avatar', file)
+    // 使用用户API模块上传头像
+    const response = await uploadAvatar(file)
     
-    // 确保从userData中获取用户ID
-    const userId = userStore.state.userData?.id || '1'
-    console.log('上传头像，用户ID:', userId)
-    console.log('使用的Token:', userStore.state.token)
+    console.log('上传响应数据:', response)
     
-    // 检查token是否存在
-    if (!userStore.state.token) {
-      console.error('Token不存在，请先登录')
-      alert('请先登录后再上传头像')
-      return
-    }
-    
-    // 使用完整的URL，不使用相对路径
-    const response = await fetch(`http://localhost:5000/api/auth/avatar/${userId}`, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Authorization': `Bearer ${userStore.state.token}`
-      }
-    })
-    
-    console.log('上传响应状态:', response.status)
-    
-    const data = await response.json()
-    console.log('上传响应数据:', data)
-    
-    if (!response.ok) {
-      throw new Error(data.message || `上传失败: ${response.status}`)
-    }
-    
-    if (data.success) {
-      console.log('头像上传成功，URL:', data.data.avatar)
-      userStore.updateAvatar(data.data.avatar)
-      console.log('更新后的头像URL:', userStore.state.avatar)
+    if (response.success) {
+      console.log('头像上传成功，URL:', response.avatar_url)
+      userStore.updateAvatar(response.avatar_url)
+      console.log('更新后的头像URL:', userStore.state.userData?.avatar)
       alert('头像更新成功')
       
       // 强制刷新头像
       const avatarImg = document.querySelector('.avatar')
       if (avatarImg) {
-        avatarImg.src = data.data.avatar + '?t=' + new Date().getTime()
+        avatarImg.src = response.avatar_url + '?t=' + new Date().getTime()
       }
     } else {
-      throw new Error(data.message || '头像上传失败')
+      throw new Error(response.message || '头像上传失败')
     }
   } catch (error) {
     console.error('上传头像失败:', error)
-    alert('头像上传失败: ' + error.message)
+    alert('头像上传失败: ' + (error.message || '未知错误'))
   }
 }
 

@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // 创建axios实例
 const request = axios.create({
-  baseURL: 'http://localhost:5000',  // 修改为不包含/api的路径
+  baseURL: 'http://localhost:5006',  // 修改为不包含/api的路径
   timeout: 10000,  // 增加超时时间到10秒
   headers: {
     'Content-Type': 'application/json'

@@ -13,13 +13,20 @@ export default defineConfig({
     port: 3005,
     proxy: {
       '/api': {
-        target: 'http://localhost:5006',
+        target: 'http://localhost:5007',
         changeOrigin: true,
-        // 移除重写规则，保留/api前缀
-        // rewrite: (path) => path.replace(/^\/api/, '')
+        secure: false,
+        ws: true,
+        rewrite: (path) => path
       },
       '/uploads': {
-        target: 'http://localhost:5006',
+        target: 'http://localhost:5007',
+        changeOrigin: true,
+        secure: false,
+        ws: true
+      },
+      '/default-avatar.png': {
+        target: 'http://localhost:5007',
         changeOrigin: true,
         secure: false
       }

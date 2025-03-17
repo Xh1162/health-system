@@ -382,7 +382,7 @@
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, inject, onMounted, onUnmounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { createExerciseRecord, createMoodRecord, createHealthRecord, createFoodRecord } from '../api/records'
 
@@ -392,10 +392,22 @@ const userStore = inject('userStore')
 // 用户信息
 const username = computed(() => userStore.state.username || '用户')
 const avatarUrl = computed(() => {
-  const avatar = userStore.state.avatar
+  const avatar = userStore.state.userData?.avatar
   if (!avatar) {
-    return 'https://via.placeholder.com/100'
+    // 使用完整URL，确保端口正确
+    return 'http://localhost:5007/default-avatar.png'
   }
+  
+  // 如果是相对路径，添加基础URL
+  if (avatar.startsWith('/')) {
+    return `http://localhost:5007${avatar}`
+  }
+  
+  // 如果包含旧端口，替换为新端口
+  if (avatar.includes('localhost:5000')) {
+    return avatar.replace('localhost:5000', 'localhost:5007')
+  }
+  
   return avatar
 })
 
@@ -416,6 +428,7 @@ const isRolling = ref(false)
 const diceResult = ref(null)
 const showHealthReminder = ref(false)
 const particleIcons = ['🍎', '🥦', '🍚', '🍗', '🥩', '🐟']
+let tipsSwitchTimer = null // 定义定时器变量
 
 // 食物数据库（示例）
 const foodDatabase = {
@@ -482,6 +495,7 @@ const confirmRecommendation = () => {
 // 记录对话框状态
 const isDialogVisible = ref(false)
 const recordType = ref('')
+const isSubmitting = ref(false) // 添加提交状态变量
 
 // 选中状态
 const selectedExercise = ref('')
@@ -582,22 +596,31 @@ const toggleStatus = (type) => {
 // 提交记录
 const submitRecord = async () => {
   try {
-    // 根据不同类型的记录执行不同的提交逻辑
+    isSubmitting.value = true
+    console.log('开始提交记录，类型:', recordType.value)
+    
+    // 验证表单
     if (recordType.value === 'food') {
+      if (!selectedMealTime.value) {
+        alert('请选择用餐时间')
+        return
+      }
       if (!foodName.value) {
         alert('请输入食物名称')
         return
       }
-      console.log('提交食物记录:', {
-        meal_time: selectedMealTime.value || 'snack', // 如果没选择用餐时间，默认为零食
+      
+      // 准备数据
+      const data = {
         food_name: foodName.value,
+        meal_time: selectedMealTime.value,
         note: foodNote.value
-      })
-      await createFoodRecord({
-        meal_time: selectedMealTime.value || 'snack',
-        food_name: foodName.value,
-        note: foodNote.value
-      })
+      }
+      
+      console.log('提交食物记录数据:', data)
+      
+      // 使用API模块提交
+      await createFoodRecord(data)
       showSuccessMessage('饮食记录已保存')
     } else if (recordType.value === 'exercise') {
       if (!selectedExercise.value) {
@@ -608,33 +631,54 @@ const submitRecord = async () => {
         alert('请输入运动时长')
         return
       }
-      await createExerciseRecord({
+      
+      // 准备数据
+      const data = {
         exercise_type: selectedExercise.value,
         duration: parseInt(exerciseDuration.value),
         intensity: selectedIntensity.value || 'medium',
         note: exerciseNote.value
-      })
+      }
+      
+      console.log('提交运动记录数据:', data)
+      
+      // 使用API模块提交
+      await createExerciseRecord(data)
       showSuccessMessage('运动记录已保存')
     } else if (recordType.value === 'mood') {
       if (!selectedMood.value) {
         alert('请选择心情类型')
         return
       }
-      await createMoodRecord({
+      
+      // 准备数据
+      const data = {
         mood_type: selectedMood.value,
         note: moodNote.value
-      })
+      }
+      
+      console.log('提交心情记录数据:', data)
+      
+      // 使用API模块提交
+      await createMoodRecord(data)
       showSuccessMessage('心情记录已保存')
     } else if (recordType.value === 'health') {
       if (!selectedFeeling.value) {
         alert('请选择身体感受')
         return
       }
-      await createHealthRecord({
+      
+      // 准备数据
+      const data = {
         feeling: selectedFeeling.value,
         status: selectedStatus.value,
         note: healthNote.value
-      })
+      }
+      
+      console.log('提交健康记录数据:', data)
+      
+      // 使用API模块提交
+      await createHealthRecord(data)
       showSuccessMessage('身体状况已记录')
     }
     
@@ -644,12 +688,14 @@ const submitRecord = async () => {
   } catch (error) {
     console.error('提交记录失败:', error)
     if (error.response) {
-      alert(`提交失败: ${error.response.data.message || '请重试'}`)
+      alert(`提交失败: ${error.response.data?.message || '请重试'}`)
     } else if (error.request) {
       alert('服务器无响应，请检查网络连接')
     } else {
-      alert('提交失败，请重试')
+      alert(`提交失败: ${error.message || '未知错误'}`)
     }
+  } finally {
+    isSubmitting.value = false
   }
 }
 
@@ -684,12 +730,38 @@ const closeUserMenu = (event) => {
 
 // 添加全局点击事件监听器
 onMounted(() => {
-  document.addEventListener('click', closeUserMenu)
+  // 获取用户信息
+  fetchUserInfo()
+  
+  // 获取记录统计
+  fetchRecordsStats()
+  
+  // 获取最近记录
+  fetchRecentRecords()
+  
+  // 获取公告
+  fetchAnnouncements()
+  
+  // 设置定时器，每10秒切换一次健康提醒和小贴士
+  tipsSwitchTimer = setInterval(() => {
+    showHealthReminder.value = !showHealthReminder.value
+  }, 10000)
+  
+  // 添加点击外部关闭用户菜单的事件监听
+  document.addEventListener('click', handleClickOutside)
+  
+  // 生成随机的食物推荐
+  generateFoodRecommendation()
 })
 
-// 组件卸载时移除事件监听器
-onUnmounted(() => {
-  document.removeEventListener('click', closeUserMenu)
+onBeforeUnmount(() => {
+  // 清除定时器
+  if (tipsSwitchTimer) {
+    clearInterval(tipsSwitchTimer)
+  }
+  
+  // 移除事件监听
+  document.removeEventListener('click', handleClickOutside)
 })
 
 // 食物相关方法
@@ -817,6 +889,79 @@ const closeDialogOnOverlayClick = (event) => {
   if (event.target.classList.contains('record-dialog-overlay')) {
     closeDialog()
   }
+}
+
+// 生命周期钩子
+onMounted(() => {
+  // 获取用户信息
+  fetchUserInfo()
+  
+  // 获取记录统计
+  fetchRecordsStats()
+  
+  // 获取最近记录
+  fetchRecentRecords()
+  
+  // 获取公告
+  fetchAnnouncements()
+  
+  // 设置定时器，每10秒切换一次健康提醒和小贴士
+  tipsSwitchTimer = setInterval(() => {
+    showHealthReminder.value = !showHealthReminder.value
+  }, 10000)
+  
+  // 添加点击外部关闭用户菜单的事件监听
+  document.addEventListener('click', handleClickOutside)
+  
+  // 生成随机的食物推荐
+  generateFoodRecommendation()
+})
+
+onBeforeUnmount(() => {
+  // 清除定时器
+  if (tipsSwitchTimer) {
+    clearInterval(tipsSwitchTimer)
+  }
+  
+  // 移除事件监听
+  document.removeEventListener('click', handleClickOutside)
+})
+
+// 添加点击外部关闭用户菜单的事件监听
+const handleClickOutside = (event) => {
+  if (userMenuRef.value && !userMenuRef.value.contains(event.target)) {
+    showUserMenu.value = false
+  }
+}
+
+// 生成随机的食物推荐
+const generateFoodRecommendation = () => {
+  // 这里可以添加生成食物推荐的逻辑
+  console.log('生成随机的食物推荐')
+}
+
+// 获取用户信息
+const fetchUserInfo = () => {
+  // 这里可以添加获取用户信息的逻辑
+  console.log('获取用户信息')
+}
+
+// 获取记录统计
+const fetchRecordsStats = () => {
+  // 这里可以添加获取记录统计的逻辑
+  console.log('获取记录统计')
+}
+
+// 获取最近记录
+const fetchRecentRecords = () => {
+  // 这里可以添加获取最近记录的逻辑
+  console.log('获取最近记录')
+}
+
+// 获取公告
+const fetchAnnouncements = () => {
+  // 这里可以添加获取公告的逻辑
+  console.log('获取公告')
 }
 </script>
 

@@ -2,7 +2,7 @@ import { reactive, computed } from 'vue'
 
 // 后端基础URL
 const getApiBaseUrl = () => {
-  return 'http://localhost:5000'
+  return 'http://localhost:5007'
 }
 
 const state = reactive({
@@ -32,8 +32,8 @@ const init = () => {
       console.log('解析的用户数据:', parsedUserData)
       
       // 更新头像URL的端口号
-      if (parsedUserData.avatar && parsedUserData.avatar.includes('localhost:5004')) {
-        parsedUserData.avatar = parsedUserData.avatar.replace('localhost:5004', 'localhost:5000')
+      if (parsedUserData.avatar && parsedUserData.avatar.includes('localhost:5000')) {
+        parsedUserData.avatar = parsedUserData.avatar.replace('localhost:5000', 'localhost:5007')
       }
       
       state.isAuthenticated = true

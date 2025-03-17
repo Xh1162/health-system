@@ -1,2 +1,2 @@
 #!/bin/bash
-node server.js
+cd backend && python run.py
