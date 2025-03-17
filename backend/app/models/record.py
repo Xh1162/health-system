@@ -35,8 +35,8 @@ class Record(db.Model):
             'user_id': self.user_id,
             'type': self.type,
             'note': self.note,
-            'record_date': self.record_date.isoformat(),
-            'created_at': self.created_at.isoformat()
+            'record_date': self.record_date.strftime('%Y-%m-%d'),
+            'created_at': self.created_at.strftime('%Y-%m-%d')
         }
         
         # 根据记录类型添加特定字段

@@ -652,7 +652,11 @@ const formatDateHeader = (date) => {
   } else if (date === yesterday) {
     return '昨天'
   }
-  return date
+  
+  // 将日期字符串转换为Date对象
+  const dateObj = new Date(date)
+  // 格式化为"年-月-日"格式
+  return dateObj.getFullYear() + '年' + (dateObj.getMonth() + 1) + '月' + dateObj.getDate() + '日'
 }
 
 // 获取用餐时间标签
