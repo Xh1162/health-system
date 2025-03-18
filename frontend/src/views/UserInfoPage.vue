@@ -80,9 +80,10 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import userStore from '../stores/userStore'
+import useUserStore from '../stores/userStore'
 
 const router = useRouter()
+const userStore = useUserStore()
 const height = ref(170)
 const weight = ref(65)
 const birthDate = ref('')

@@ -15,6 +15,11 @@ export function updateUserProfile(data) {
   return api.put('/user/profile', data)
 }
 
+// 更新用户名
+export function updateUsername(username) {
+  return api.post('/auth/username', { username })
+}
+
 // 上传用户头像
 export function uploadAvatar(file) {
   const formData = new FormData()
@@ -41,6 +46,7 @@ export default {
   getUserInfo,
   getUserProfile,
   updateUserProfile,
+  updateUsername,
   uploadAvatar,
   getUserDashboard,
   getAnnouncements

@@ -1,5 +1,7 @@
 import api from './index'
-import userStore from '../stores/userStore'
+import useUserStore from '../stores/userStore'
+
+const userStore = useUserStore()
 
 // 登录
 export function login(username, password) {

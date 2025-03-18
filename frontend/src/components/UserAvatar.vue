@@ -22,8 +22,9 @@
 
 <script setup>
 import { computed } from 'vue'
-import userStore from '../stores/userStore'
+import useUserStore from '../stores/userStore'
 
+const userStore = useUserStore()
 const props = defineProps({
   editable: {
     type: Boolean,

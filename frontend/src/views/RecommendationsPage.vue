@@ -166,10 +166,11 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import UserAvatar from '../components/UserAvatar.vue'
-import userStore from '../stores/userStore'
+import useUserStore from '../stores/userStore'
 import axios from 'axios'
 
 const router = useRouter()
+const userStore = useUserStore()
 const isDropdownVisible = ref(false)
 const userMenuRef = ref(null)
 const loading = ref(true)

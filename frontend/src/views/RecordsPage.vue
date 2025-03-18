@@ -546,8 +546,11 @@ import { ref, onMounted, computed, onUnmounted } from 'vue'
 import { getAllRecords, updateFoodRecord, updateExerciseRecord, updateMoodRecord, updateHealthRecord, deleteRecord, createFoodRecord, createExerciseRecord, createMoodRecord, createHealthRecord } from '../api/records'
 import { useRouter } from 'vue-router'
 import UserAvatar from '../components/UserAvatar.vue'
-import userStore from '../stores/userStore'
+import useUserStore from '../stores/userStore'
 import { ElMessage } from 'element-plus'
+
+const router = useRouter()
+const userStore = useUserStore()
 
 const records = ref({
   food: [],
@@ -1131,7 +1134,6 @@ const formatDateForInput = (date) => {
   return `${year}-${month}-${day}`
 }
 
-const router = useRouter()
 const isDropdownVisible = ref(false)
 const userMenuRef = ref(null)
 

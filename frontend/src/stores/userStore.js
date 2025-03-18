@@ -1,5 +1,32 @@
 import { reactive, computed } from 'vue'
 
+// 简单的事件系统
+const eventListeners = {
+  avatarUpdate: []
+}
+
+// 事件相关函数
+const emitEvent = (event, data) => {
+  if (eventListeners[event]) {
+    eventListeners[event].forEach(listener => listener(data))
+  }
+}
+
+const onEvent = (event, callback) => {
+  if (!eventListeners[event]) {
+    eventListeners[event] = []
+  }
+  eventListeners[event].push(callback)
+  
+  // 返回取消监听的函数
+  return () => {
+    const index = eventListeners[event].indexOf(callback)
+    if (index !== -1) {
+      eventListeners[event].splice(index, 1)
+    }
+  }
+}
+
 // 后端基础URL
 const getApiBaseUrl = () => {
   return 'http://localhost:5007'
@@ -51,8 +78,13 @@ const init = () => {
 // 确保URL是完整的URL
 const ensureFullUrl = (url) => {
   if (!url) return ''
+  
+  // 如果已经是完整URL，直接返回
   if (url.startsWith('http')) return url
-  return `${getApiBaseUrl()}${url}`
+  
+  // 处理开头有斜杠和没有斜杠的情况
+  const baseUrl = getApiBaseUrl()
+  return url.startsWith('/') ? `${baseUrl}${url}` : `${baseUrl}/${url}`
 }
 
 const useUserStore = () => {
@@ -62,10 +94,26 @@ const useUserStore = () => {
       console.error('无法更新头像：用户数据不存在')
       return
     }
-    state.userData.avatar = ensureFullUrl(avatar)
-    console.log('处理后的头像URL:', state.userData.avatar)
-    // 更新localStorage中的用户数据
-    updateLocalStorage()
+    
+    try {
+      // 处理可能的undefined或null值
+      if (!avatar) {
+        console.warn('收到空的头像URL，使用默认值')
+        avatar = '/default-avatar.png'
+      }
+      
+      // 确保头像URL是完整的
+      state.userData.avatar = ensureFullUrl(avatar)
+      console.log('处理后的头像URL:', state.userData.avatar)
+      
+      // 更新localStorage中的用户数据
+      updateLocalStorage()
+      
+      // 触发头像更新事件
+      emitEvent('avatarUpdate', state.userData.avatar)
+    } catch (error) {
+      console.error('更新头像时出错:', error)
+    }
   }
 
   const updateUsername = (username) => {
@@ -131,20 +179,18 @@ const useUserStore = () => {
     localStorage.removeItem('userData')
   }
 
+  // 执行初始化
+  init()
+
   return {
     state,
-    init,
-    updateAvatar,
     updateUsername,
+    updateAvatar,
     login,
-    logout
+    logout,
+    // 添加事件相关函数
+    onAvatarUpdate: (callback) => onEvent('avatarUpdate', callback)
   }
 }
 
-// 创建全局单例
-const userStore = useUserStore()
-
-// 初始化用户状态
-init()
-
-export default userStore 
+export default useUserStore 

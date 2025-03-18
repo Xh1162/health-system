@@ -77,10 +77,11 @@ import { useRouter } from 'vue-router'
 import DataAnalysis from '../components/reports/DataAnalysis.vue'
 import TrendAnalysis from '../components/reports/TrendAnalysis.vue'
 import Recommendations from '../components/reports/Recommendations.vue'
-import userStore from '../stores/userStore'
+import useUserStore from '../stores/userStore'
 import { getReportsSummary } from '../api/reports'
 
 const router = useRouter()
+const userStore = useUserStore()
 const showUserMenu = ref(false)
 const loading = ref(true)
 const error = ref(null)

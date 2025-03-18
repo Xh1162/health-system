@@ -187,10 +187,11 @@ import axios from 'axios'
 import * as authApi from '../api/auth'
 import { getRecordsStats, getAllRecords } from '../api/records'
 import { useRouter } from 'vue-router'
-import userStore from '../stores/userStore'
+import useUserStore from '../stores/userStore'
 import { ElMessage } from 'element-plus'
 import { uploadAvatar } from '../api/user'
 
+const userStore = useUserStore()
 // 用户基本信息
 const username = ref(userStore.state.username || '')
 const email = ref('')

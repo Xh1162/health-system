@@ -1,287 +1,216 @@
 <template>
-  <div class="login-page">
-    <div class="login-card">
-      <h2>欢迎回来</h2>
-      <p class="subtitle">登录您的健康助手账号</p>
+  <div class="login-container">
+    <div class="debug-info">
+      <h3>调试信息</h3>
+      <div>
+        <strong>认证状态:</strong> {{ userStore.state.isAuthenticated ? '已登录' : '未登录' }}
+      </div>
+      <div>
+        <strong>用户数据:</strong> {{ userStore.state.userData ? '已加载' : '未加载' }}
+      </div>
+      <pre v-if="userStore.state.userData">{{ JSON.stringify(userStore.state.userData, null, 2) }}</pre>
+    </div>
+    
+    <div class="login-form">
+      <h2>健康生活系统登录</h2>
+      <div v-if="error" class="error-message">{{ error }}</div>
       
-      <form @submit.prevent="handleLogin">
-        <div class="form-group">
-          <label>用户名</label>
-          <input 
-            type="text" 
-            v-model="username"
-            placeholder="请输入用户名"
-            required
-          />
-        </div>
-        
-        <div class="form-group">
-          <label>密码</label>
-          <div class="password-input">
-            <input 
-              :type="showPassword ? 'text' : 'password'" 
-              v-model="password"
-              placeholder="请输入密码"
-              required
-            />
-            <button 
-              type="button" 
-              class="toggle-password" 
-              @click="showPassword = !showPassword"
-            >
-              <span class="icon">{{ showPassword ? '⊙' : '⊗' }}</span>
-            </button>
-          </div>
-        </div>
-
-        <div v-if="error" class="error-message">
-          {{ error }}
-        </div>
-
-        <div class="form-options">
-          <label class="remember-me">
-            <input type="checkbox" v-model="rememberMe" />
-            <span>记住我</span>
-          </label>
-          <a href="#" class="forgot-password">忘记密码?</a>
-        </div>
-
-        <button type="submit" class="login-button" :disabled="loading">
-          {{ loading ? '登录中...' : '登录' }}
-        </button>
-        
-        <div class="register-link">
-          还没有账号？
-          <router-link to="/register">立即注册</router-link>
-        </div>
-      </form>
+      <div class="form-group">
+        <label for="username">用户名</label>
+        <input 
+          type="text" 
+          id="username" 
+          v-model="username" 
+          placeholder="请输入用户名"
+          autocomplete="username"
+        />
+      </div>
+      
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input 
+          type="password" 
+          id="password" 
+          v-model="password" 
+          placeholder="请输入密码"
+          autocomplete="current-password"
+        />
+      </div>
+      
+      <button 
+        class="login-button" 
+        @click="login" 
+        :disabled="isLoading"
+      >
+        {{ isLoading ? '登录中...' : '登录' }}
+      </button>
+      
+      <div class="register-link">
+        还没有账号？<router-link to="/register">立即注册</router-link>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import * as authApi from '../api/auth'
-import userStore from '../stores/userStore'
+import { ref, inject } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import axios from 'axios'
 
 const router = useRouter()
+const route = useRoute()
+const userStore = inject('userStore')
+
+// 表单数据
 const username = ref('')
 const password = ref('')
-const showPassword = ref(false)
-const rememberMe = ref(false)
-const loading = ref(false)
 const error = ref('')
+const isLoading = ref(false)
 
-const handleLogin = async () => {
-  if (!username.value || !password.value) {
-    error.value = '请输入用户名和密码'
-    return
-  }
+// 仅用于测试：自动填入测试凭据
+username.value = 'testuser'
+password.value = 'password123'
 
-  loading.value = true
-  error.value = ''
-
+const login = async () => {
   try {
-    console.log('登录请求数据:', { username: username.value, password: '******' })
+    error.value = ''
     
-    const response = await authApi.login(username.value, password.value)
-    console.log('登录响应:', response)
+    if (!username.value || !password.value) {
+      error.value = '请输入用户名和密码'
+      return
+    }
     
-    if (response.success) {
-      console.log('登录成功，保存用户信息:', {
-        token: response.data.token,
-        user: response.data.user
-      })
+    isLoading.value = true
+    
+    console.log('登录请求:', { username: username.value, password: password.value })
+    
+    // 调用登录API
+    const apiBaseUrl = 'http://localhost:5007'
+    const response = await axios.post(`${apiBaseUrl}/api/auth/login`, {
+      username: username.value,
+      password: password.value
+    })
+    
+    console.log('登录响应:', response.data)
+    
+    if (response.data.success) {
+      // 登录成功，更新用户状态
+      userStore.login(response.data.data)
       
-      // 保存用户信息
-      userStore.login({
-        token: response.data.token,
-        user: response.data.user
-      })
+      console.log('登录后用户状态:', userStore.state)
       
-      // 检查token是否正确保存
-      console.log('登录后localStorage中的token:', localStorage.getItem('token'))
-      console.log('登录后userStore中的token:', userStore.state.token)
-      console.log('登录后localStorage中的userData:', localStorage.getItem('userData'))
-      
-      // 如果选择记住我，保存用户名
-      if (rememberMe.value) {
-        localStorage.setItem('rememberedUsername', username.value)
-      } else {
-        localStorage.removeItem('rememberedUsername')
-      }
-      
-      // 跳转到仪表板
-      console.log('准备跳转到仪表板页面')
-      setTimeout(() => {
-        router.push('/dashboard')
-      }, 500) // 延迟500毫秒，确保数据已保存
+      // 检查是否有重定向路径
+      const redirectPath = route.query.redirect || '/dashboard'
+      router.push(redirectPath)
     } else {
-      console.error('登录失败，服务器返回失败状态:', response)
-      error.value = response.message || '登录失败'
+      error.value = response.data.message || '登录失败'
     }
   } catch (err) {
     console.error('登录错误:', err)
     if (err.response) {
-      console.error('错误响应:', err.response.data)
-      error.value = err.response.data.message || '登录失败，请检查用户名和密码'
+      error.value = err.response.data?.message || '登录失败，请检查您的用户名和密码'
     } else if (err.request) {
-      console.error('未收到响应:', err.request)
       error.value = '服务器无响应，请检查网络连接'
     } else {
-      console.error('请求配置错误:', err.message)
-      error.value = '登录失败，请检查网络连接'
+      error.value = err.message || '登录时发生错误'
     }
   } finally {
-    loading.value = false
+    isLoading.value = false
+  }
+}
+
+// 调试函数：模拟登录
+const simulateLogin = () => {
+  const mockData = {
+    success: true,
+    data: {
+      token: 'mock-token-123',
+      user: {
+        id: '1',
+        username: 'testuser',
+        email: 'test@example.com',
+        avatar: '/uploads/avatars/default.png'
+      }
+    }
+  }
+  
+  try {
+    userStore.login(mockData.data)
+    console.log('模拟登录成功!')
+    router.push('/dashboard')
+  } catch (err) {
+    console.error('模拟登录失败:', err)
+    error.value = '模拟登录失败: ' + err.message
   }
 }
 </script>
 
 <style scoped>
-.login-page {
+.login-container {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #f0f7ff 0%, #e0f2fe 100%);
-  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 20px;
 }
 
-.login-card {
-  background: white;
-  padding: 2rem;
-  border-radius: 1rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+.login-form {
   width: 100%;
   max-width: 400px;
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
 }
 
 h2 {
   text-align: center;
-  color: #1e293b;
-  margin-bottom: 0.5rem;
-}
-
-.subtitle {
-  text-align: center;
-  color: #64748b;
-  margin-bottom: 2rem;
+  margin-bottom: 24px;
+  color: #334155;
+  font-weight: 600;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 20px;
 }
 
 label {
   display: block;
-  margin-bottom: 0.5rem;
-  color: #1e293b;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #475569;
 }
 
 input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  font-size: 1rem;
-  transition: all 0.3s ease;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 input:focus {
-  outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.password-input {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-input input {
-  flex: 1;
-  padding-right: 4rem;
-}
-
-.toggle-password {
-  position: absolute;
-  right: 0.5rem;
-  background: none;
-  border: none;
-  color: #64748b;
-  padding: 0.5rem;
-  font-size: 1rem;
-  cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.3s ease;
-}
-
-.toggle-password:hover {
-  opacity: 1;
-}
-
-.toggle-password .icon {
-  display: block;
-  line-height: 1;
-}
-
-.error-message {
-  color: #ef4444;
-  margin-bottom: 1rem;
-  font-size: 0.875rem;
-}
-
-.form-options {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 1rem 0 1.5rem;
-}
-
-.remember-me {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #64748b;
-  cursor: pointer;
-}
-
-.remember-me input[type="checkbox"] {
-  width: auto;
-  margin: 0;
-}
-
-.remember-me span {
-  user-select: none;
-}
-
-.forgot-password {
-  color: #3b82f6;
-  text-decoration: none;
-  font-size: 0.875rem;
-}
-
-.forgot-password:hover {
-  text-decoration: underline;
-}
-
 .login-button {
   width: 100%;
-  padding: 0.75rem;
+  padding: 12px;
   background: #3b82f6;
   color: white;
   border: none;
-  border-radius: 0.5rem;
-  font-size: 1rem;
+  border-radius: 6px;
+  font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.2s;
 }
 
-.login-button:hover {
+.login-button:hover:not(:disabled) {
   background: #2563eb;
 }
 
@@ -291,18 +220,56 @@ input:focus {
 }
 
 .register-link {
+  margin-top: 16px;
   text-align: center;
-  margin-top: 1.5rem;
-  color: #64748b;
+  font-size: 14px;
+  color: #475569;
 }
 
 .register-link a {
   color: #3b82f6;
   text-decoration: none;
-  margin-left: 0.5rem;
+  font-weight: 500;
 }
 
 .register-link a:hover {
   text-decoration: underline;
+}
+
+.error-message {
+  padding: 12px;
+  background: #fee2e2;
+  border-radius: 6px;
+  color: #b91c1c;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.debug-info {
+  margin-bottom: 30px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 15px;
+  border-radius: 8px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  overflow: auto;
+}
+
+.debug-info h3 {
+  margin-top: 0;
+  color: #334155;
+}
+
+.debug-info pre {
+  margin: 10px 0 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #f1f5f9;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  max-height: 200px;
+  overflow: auto;
 }
 </style> 

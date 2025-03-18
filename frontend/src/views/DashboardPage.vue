@@ -200,202 +200,204 @@
           <span class="action-text">身体状况记录</span>
         </div>
       </div>
-    </main>
 
-    <!-- 记录对话框 -->
-    <div v-if="isDialogVisible" class="record-dialog-overlay" @click="closeDialogOnOverlayClick">
-      <div class="record-dialog" @click.stop>
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h3>{{ getDialogTitle() }}</h3>
-          <button class="close-btn" @click="closeDialog">×</button>
-        </div>
-
-        <!-- 日期选择器 - 添加到所有记录表单的顶部 -->
-        <div class="section-title">选择日期</div>
-        <div class="date-selector">
-          <input 
-            type="date" 
-            v-model="selectedDate"
-            class="date-input"
-            :max="maxDate"
-          />
-        </div>
-
-        <!-- 食物记录 -->
-        <div v-if="recordType === 'food'" class="record-form">
-          <div class="section-title">用餐时间</div>
-          <div class="meal-time-buttons">
-            <button 
-              v-for="meal in mealTimes" 
-              :key="meal.value"
-              class="meal-time-btn"
-              :class="{ active: selectedMealTime === meal.value }"
-              @click="selectMealTime(meal.value)"
-            >
-              <span class="meal-icon">{{ meal.icon }}</span>
-              <span class="meal-label">{{ meal.label }}</span>
-            </button>
+      <!-- 记录对话框 -->
+      <div v-if="isDialogVisible" class="record-dialog-overlay" @click="closeDialogOnOverlayClick">
+        <div class="record-dialog" @click.stop>
+        <div class="dialog-content">
+          <div class="dialog-header">
+            <h3>{{ getDialogTitle() }}</h3>
+            <button class="close-btn" @click="closeDialog">×</button>
           </div>
 
-          <div class="section-title">食物名称</div>
-          <input 
-            type="text" 
-            v-model="foodName"
-            class="food-input"
-            placeholder="输入食物名称"
-          />
-
-          <div class="section-title">常见食物</div>
-          <div class="common-foods-grid">
-            <button 
-              v-for="food in currentCommonFoods" 
-              :key="food.name"
-              class="food-btn"
-              @click="selectFood(food)"
-            >
-              <span class="food-icon">{{ food.icon }}</span>
-              <span class="food-label">{{ food.name }}</span>
-            </button>
-          </div>
-
-          <div class="section-title">备注</div>
-          <textarea 
-            v-model="foodNote"
-            class="food-note"
-            placeholder="添加备注..."
-          ></textarea>
-        </div>
-
-        <!-- 运动记录 -->
-        <div v-if="recordType === 'exercise'" class="record-form">
-          <div class="section-title">运动类型</div>
-          <div class="exercise-type-grid">
-            <button 
-              v-for="exercise in exerciseTypes" 
-              :key="exercise.type"
-              class="exercise-type-btn"
-              :class="{ active: selectedExercise === exercise.type }"
-              @click="selectExercise(exercise.type)"
-            >
-              <span class="exercise-icon">{{ exercise.icon }}</span>
-              <span class="exercise-label">{{ exercise.label }}</span>
-            </button>
-          </div>
-
-          <div class="section-title">运动时长</div>
-          <div class="duration-input">
+          <!-- 日期选择器 - 添加到所有记录表单的顶部 -->
+          <div class="section-title">选择日期</div>
+          <div class="date-selector">
             <input 
-              type="number" 
-              v-model="exerciseDuration" 
-              placeholder="输入时长"
-              class="time-input"
+              type="date" 
+              v-model="selectedDate"
+              class="date-input"
+              :max="maxDate"
             />
-            <span class="time-unit">分钟</span>
           </div>
 
-          <div class="section-title">运动强度</div>
-          <div class="intensity-buttons">
-            <button 
-              v-for="intensity in intensityLevels" 
-              :key="intensity.level"
-              class="intensity-btn"
-              :class="{ active: selectedIntensity === intensity.level }"
-              @click="selectIntensity(intensity.level)"
-            >
-              <span class="intensity-icon">{{ intensity.icon }}</span>
-              <span class="intensity-label">{{ intensity.label }}</span>
-            </button>
+          <!-- 食物记录 -->
+          <div v-if="recordType === 'food'" class="record-form">
+            <div class="section-title">用餐时间</div>
+            <div class="meal-time-buttons">
+              <button 
+                v-for="meal in mealTimes" 
+                :key="meal.value"
+                class="meal-time-btn"
+                :class="{ active: selectedMealTime === meal.value }"
+                @click="selectMealTime(meal.value)"
+              >
+                <span class="meal-icon">{{ meal.icon }}</span>
+                <span class="meal-label">{{ meal.label }}</span>
+              </button>
+            </div>
+
+            <div class="section-title">食物名称</div>
+            <input 
+              type="text" 
+              v-model="foodName"
+              class="food-input"
+              placeholder="输入食物名称"
+            />
+
+            <div class="section-title">常见食物</div>
+            <div class="common-foods-grid">
+              <button 
+                v-for="food in currentCommonFoods" 
+                :key="food.name"
+                class="food-btn"
+                @click="selectFood(food)"
+              >
+                <span class="food-icon">{{ food.icon }}</span>
+                <span class="food-label">{{ food.name }}</span>
+              </button>
+            </div>
+
+            <div class="section-title">备注</div>
+            <textarea 
+              v-model="foodNote"
+              class="food-note"
+              placeholder="添加备注..."
+            ></textarea>
           </div>
-          
-          <div class="section-title">备注</div>
-          <textarea 
-            v-model="exerciseNote"
-            class="exercise-note"
-            placeholder="添加备注..."
-          ></textarea>
+
+          <!-- 运动记录 -->
+          <div v-if="recordType === 'exercise'" class="record-form">
+            <div class="section-title">运动类型</div>
+            <div class="exercise-type-grid">
+              <button 
+                v-for="exercise in exerciseTypes" 
+                :key="exercise.type"
+                class="exercise-type-btn"
+                :class="{ active: selectedExercise === exercise.type }"
+                @click="selectExercise(exercise.type)"
+              >
+                <span class="exercise-icon">{{ exercise.icon }}</span>
+                <span class="exercise-label">{{ exercise.label }}</span>
+              </button>
+            </div>
+
+            <div class="section-title">运动时长</div>
+            <div class="duration-input">
+              <input 
+                type="number" 
+                v-model="exerciseDuration" 
+                placeholder="输入时长"
+                class="time-input"
+              />
+              <span class="time-unit">分钟</span>
+            </div>
+
+            <div class="section-title">运动强度</div>
+            <div class="intensity-buttons">
+              <button 
+                v-for="intensity in intensityLevels" 
+                :key="intensity.level"
+                class="intensity-btn"
+                :class="{ active: selectedIntensity === intensity.level }"
+                @click="selectIntensity(intensity.level)"
+              >
+                <span class="intensity-icon">{{ intensity.icon }}</span>
+                <span class="intensity-label">{{ intensity.label }}</span>
+              </button>
+            </div>
+            
+            <div class="section-title">备注</div>
+            <textarea 
+              v-model="exerciseNote"
+              class="exercise-note"
+              placeholder="添加备注..."
+            ></textarea>
+          </div>
+
+          <!-- 心情记录 -->
+          <div v-if="recordType === 'mood'" class="record-form">
+            <div class="section-title">今日心情</div>
+            <div class="mood-grid">
+              <button 
+                v-for="mood in moods" 
+                :key="mood.type"
+                class="mood-btn"
+                :class="{ active: selectedMood === mood.type }"
+                @click="selectMood(mood.type)"
+              >
+                <span class="mood-icon">{{ mood.icon }}</span>
+                <span class="mood-label">{{ mood.label }}</span>
+              </button>
+            </div>
+
+            <div class="section-title">心情小记</div>
+            <textarea 
+              v-model="moodNote"
+              class="mood-note"
+              :placeholder="'记录一下此刻的想法...\n\n可以写写：\n- 发生了什么事\n- 当下的感受\n- 想对自己说的话'"
+            ></textarea>
+          </div>
+
+          <!-- 身体感受记录 -->
+          <div v-if="recordType === 'health'" class="record-form">
+            <div class="section-title">整体感受</div>
+            <div class="feeling-grid">
+              <button 
+                v-for="feeling in feelings" 
+                :key="feeling.type"
+                class="feeling-btn"
+                :class="{ active: selectedFeeling === feeling.type }"
+                @click="selectFeeling(feeling.type)"
+              >
+                <span class="feeling-icon">{{ feeling.icon }}</span>
+                <span class="feeling-label">{{ feeling.label }}</span>
+              </button>
+            </div>
+
+            <div class="section-title">身体状态</div>
+            <div class="status-tags">
+              <button 
+                v-for="status in healthStatus" 
+                :key="status.type"
+                class="status-tag"
+                :class="{ active: selectedStatus.includes(status.type) }"
+                @click="toggleStatus(status.type)"
+              >
+                {{ status.icon }} {{ status.label }}
+              </button>
+            </div>
+
+            <div class="section-title">备注</div>
+            <textarea 
+              v-model="healthNote"
+              class="health-note"
+              placeholder="添加备注..."
+            ></textarea>
+          </div>
+
+          <div class="dialog-footer">
+            <button class="cancel-btn" @click="closeDialog">取消</button>
+            <button class="submit-btn" @click="submitRecord">记录</button>
+          </div>
         </div>
-
-        <!-- 心情记录 -->
-        <div v-if="recordType === 'mood'" class="record-form">
-          <div class="section-title">今日心情</div>
-          <div class="mood-grid">
-            <button 
-              v-for="mood in moods" 
-              :key="mood.type"
-              class="mood-btn"
-              :class="{ active: selectedMood === mood.type }"
-              @click="selectMood(mood.type)"
-            >
-              <span class="mood-icon">{{ mood.icon }}</span>
-              <span class="mood-label">{{ mood.label }}</span>
-            </button>
-          </div>
-
-          <div class="section-title">心情小记</div>
-          <textarea 
-            v-model="moodNote"
-            class="mood-note"
-            :placeholder="'记录一下此刻的想法...\n\n可以写写：\n- 发生了什么事\n- 当下的感受\n- 想对自己说的话'"
-          ></textarea>
-        </div>
-
-        <!-- 身体感受记录 -->
-        <div v-if="recordType === 'health'" class="record-form">
-          <div class="section-title">整体感受</div>
-          <div class="feeling-grid">
-            <button 
-              v-for="feeling in feelings" 
-              :key="feeling.type"
-              class="feeling-btn"
-              :class="{ active: selectedFeeling === feeling.type }"
-              @click="selectFeeling(feeling.type)"
-            >
-              <span class="feeling-icon">{{ feeling.icon }}</span>
-              <span class="feeling-label">{{ feeling.label }}</span>
-            </button>
-          </div>
-
-          <div class="section-title">身体状态</div>
-          <div class="status-tags">
-            <button 
-              v-for="status in healthStatus" 
-              :key="status.type"
-              class="status-tag"
-              :class="{ active: selectedStatus.includes(status.type) }"
-              @click="toggleStatus(status.type)"
-            >
-              {{ status.icon }} {{ status.label }}
-            </button>
-          </div>
-
-          <div class="section-title">备注</div>
-          <textarea 
-            v-model="healthNote"
-            class="health-note"
-            placeholder="添加备注..."
-          ></textarea>
-        </div>
-
-        <div class="dialog-footer">
-          <button class="cancel-btn" @click="closeDialog">取消</button>
-          <button class="submit-btn" @click="submitRecord">记录</button>
         </div>
       </div>
-      </div>
-    </div>
 
-    <!-- 成功提示 -->
-    <div v-if="successMessage" class="success-message">
-      {{ successMessage }}
-    </div>
+      <!-- 成功提示 -->
+      <div v-if="successMessage" class="success-message">
+        {{ successMessage }}
+      </div>
+    </main>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, inject, onMounted, onUnmounted, nextTick, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import { createExerciseRecord, createMoodRecord, createHealthRecord, createFoodRecord } from '../api/records'
+import { createExerciseRecord, createMoodRecord, createHealthRecord, createFoodRecord, getAllRecords } from '../api/records'
+import { getUserDashboard } from '../api/user'
+import RecordForm from '../components/records/RecordForm.vue'
 
 const router = useRouter()
 const userStore = inject('userStore')
@@ -403,22 +405,15 @@ const userStore = inject('userStore')
 // 用户信息
 const username = computed(() => userStore.state.username || '用户')
 const avatarUrl = computed(() => {
+  // 直接从userStore获取avatar，它已经在userStore中被处理成完整URL
   const avatar = userStore.state.userData?.avatar
+  
   if (!avatar) {
-    // 使用完整URL，确保端口正确
+    // 默认头像
     return 'http://localhost:5007/default-avatar.png'
   }
   
-  // 如果是相对路径，添加基础URL
-  if (avatar.startsWith('/')) {
-    return `http://localhost:5007${avatar}`
-  }
-  
-  // 如果包含旧端口，替换为新端口
-  if (avatar.includes('localhost:5000')) {
-    return avatar.replace('localhost:5000', 'localhost:5007')
-  }
-  
+  console.log('使用头像URL:', avatar)
   return avatar
 })
 
@@ -746,28 +741,14 @@ const closeUserMenu = (event) => {
 
 // 添加全局点击事件监听器
 onMounted(() => {
-  // 获取用户信息
-  fetchUserInfo()
-  
-  // 获取记录统计
-  fetchRecordsStats()
-  
-  // 获取最近记录
-  fetchRecentRecords()
-  
-  // 获取公告
-  fetchAnnouncements()
-  
-  // 设置定时器，每10秒切换一次健康提醒和小贴士
-  tipsSwitchTimer = setInterval(() => {
-    showHealthReminder.value = !showHealthReminder.value
-  }, 10000)
-  
-  // 添加点击外部关闭用户菜单的事件监听
-  document.addEventListener('click', handleClickOutside)
+  // 查询记录数据
+  queryRecords()
   
   // 生成随机的食物推荐
   generateFoodRecommendation()
+  
+  // 获取仪表盘数据
+  fetchDashboardData()
 })
 
 onBeforeUnmount(() => {
@@ -901,7 +882,7 @@ const healthStatus = [
 ]
 
 const closeDialogOnOverlayClick = (event) => {
-  // 只有当点击的是遮罩层而不是对话框本身时才关闭
+  // 只有当点击的是遮罩层本身时才关闭对话框
   if (event.target.classList.contains('record-dialog-overlay')) {
     closeDialog()
   }
@@ -909,28 +890,14 @@ const closeDialogOnOverlayClick = (event) => {
 
 // 生命周期钩子
 onMounted(() => {
-  // 获取用户信息
-  fetchUserInfo()
-  
-  // 获取记录统计
-  fetchRecordsStats()
-  
-  // 获取最近记录
-  fetchRecentRecords()
-  
-  // 获取公告
-  fetchAnnouncements()
-  
-  // 设置定时器，每10秒切换一次健康提醒和小贴士
-  tipsSwitchTimer = setInterval(() => {
-    showHealthReminder.value = !showHealthReminder.value
-  }, 10000)
-  
-  // 添加点击外部关闭用户菜单的事件监听
-  document.addEventListener('click', handleClickOutside)
+  // 查询记录数据
+  queryRecords()
   
   // 生成随机的食物推荐
   generateFoodRecommendation()
+  
+  // 获取仪表盘数据
+  fetchDashboardData()
 })
 
 onBeforeUnmount(() => {
@@ -984,6 +951,30 @@ const fetchAnnouncements = () => {
 const today = new Date()
 const maxDate = ref(today.toISOString().split('T')[0]) // 今天的日期，格式为YYYY-MM-DD
 const selectedDate = ref(today.toISOString().split('T')[0]) // 默认选择今天
+
+// 获取仪表盘数据
+const fetchDashboardData = async () => {
+  try {
+    console.log('正在刷新仪表盘数据...')
+    const response = await getUserDashboard()
+    // 处理仪表盘数据
+    console.log('仪表盘数据已更新:', response)
+  } catch (error) {
+    console.error('获取仪表盘数据失败:', error)
+  }
+}
+
+// 查询用户记录
+const queryRecords = async () => {
+  try {
+    console.log('正在查询用户记录...')
+    const response = await getAllRecords(7) // 获取最近7天的记录
+    // 处理记录数据
+    console.log('用户记录已更新:', response)
+  } catch (error) {
+    console.error('获取用户记录失败:', error)
+  }
+}
 </script>
 
 <style scoped>
@@ -3203,5 +3194,27 @@ const selectedDate = ref(today.toISOString().split('T')[0]) // 默认选择今�
   color: #1d1d1f;
   margin-bottom: 12px;
   font-size: 17px;
+}
+
+/* 记录卡片样式 */
+.record-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f5f5f7;
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #f5f5f7;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1d1d1f;
 }
 </style> 

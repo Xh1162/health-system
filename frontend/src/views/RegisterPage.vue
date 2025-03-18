@@ -67,7 +67,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { authApi } from '../services/api'
+import { register } from '../api/auth'
 
 const router = useRouter()
 const username = ref('')
@@ -100,7 +100,7 @@ const handleRegister = async () => {
     loading.value = true
     errorMessage.value = ''
     
-    const response = await authApi.register({
+    const response = await register({
       username: username.value,
       email: email.value,
       password: password.value

@@ -1,9 +1,20 @@
 import axios from 'axios'
-import userStore from '../stores/userStore'
+import useUserStore from '../stores/userStore'
+
+// 创建userStore实例
+const userStore = useUserStore()
+
+// 判断是否为开发环境
+const isDev = import.meta.env.DEV
+
+// 获取token的函数
+const getToken = () => {
+  return localStorage.getItem('token') || userStore?.state?.token || null
+}
 
 // 创建axios实例
 const api = axios.create({
-  baseURL: '/api',  // 使用相对URL，让vite代理处理
+  baseURL: 'http://localhost:5007/api',  // 使用完整URL
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
@@ -15,18 +26,21 @@ const api = axios.create({
 // 请求拦截器
 api.interceptors.request.use(
   config => {
-    // 从userStore获取token
-    const token = userStore.state.token
+    // 获取token
+    const token = getToken()
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
     }
     
-    console.log('API请求:', {
-      url: config.url,
-      method: config.method,
-      headers: config.headers,
-      data: config.data
-    })
+    // 只在开发环境中记录详细日志
+    if (isDev) {
+      console.log('API请求:', {
+        url: config.url,
+        method: config.method,
+        headers: { ...config.headers, Authorization: token ? '已设置' : '未设置' },
+        data: config.data
+      })
+    }
     
     return config
   },
@@ -39,27 +53,35 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   response => {
-    console.log('API响应成功:', {
-      url: response.config.url,
-      status: response.status,
-      data: response.data
-    })
+    // 只在开发环境中记录详细日志
+    if (isDev) {
+      console.log('API响应成功:', {
+        url: response.config.url,
+        status: response.status,
+        data: response.data
+      })
+    }
     return response.data
   },
   error => {
-    console.error('API响应错误:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-      message: error.message
-    })
+    // 错误日志在所有环境中都记录，但可以简化
+    console.error('API响应错误:', error.message)
     
     // 处理401未授权错误
     if (error.response && error.response.status === 401) {
       console.log('授权失败，清除token')
-      userStore.logout()
-      // 可以在这里添加重定向到登录页面的逻辑
+      // 直接清除localStorage中的token
+      localStorage.removeItem('token')
+      localStorage.removeItem('userData')
+      
+      // 如果userStore可用，也调用logout方法
+      if (userStore && userStore.logout) {
+        try {
+          userStore.logout()
+        } catch (e) {
+          console.error('清除userStore失败:', e)
+        }
+      }
     }
     
     return Promise.reject(error)
@@ -68,8 +90,8 @@ api.interceptors.response.use(
 
 // 提供一个使用fetch的备选方法
 export async function fetchApi(endpoint, options = {}) {
-  const url = `/api${endpoint}`;
-  const token = userStore.state.token;
+  const url = `http://localhost:5007/api${endpoint}`; // 使用完整URL
+  const token = getToken();
   
   const defaultOptions = {
     headers: {
@@ -89,27 +111,33 @@ export async function fetchApi(endpoint, options = {}) {
     }
   };
   
-  console.log('Fetch请求:', {
-    url,
-    ...fetchOptions
-  });
+  // 只在开发环境中记录详细日志
+  if (isDev) {
+    console.log('Fetch请求:', { 
+      url, 
+      ...fetchOptions, 
+      headers: { ...fetchOptions.headers, Authorization: token ? '已设置' : '未设置' } 
+    });
+  }
   
   try {
-    console.log(`开始发送请求到: ${url}`);
     const response = await fetch(url, fetchOptions);
-    console.log(`收到响应，状态码: ${response.status}`);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`HTTP错误 ${response.status}: ${errorText}`);
       throw new Error(`HTTP错误: ${response.status}, ${errorText}`);
     }
     
     const data = await response.json();
-    console.log('Fetch响应:', data);
+    
+    // 只在开发环境中记录详细日志
+    if (isDev) {
+      console.log('Fetch响应:', data);
+    }
+    
     return data;
   } catch (error) {
-    console.error('Fetch错误:', error);
+    console.error('Fetch错误:', error.message);
     throw error;
   }
 }

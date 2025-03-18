@@ -13,7 +13,7 @@
       <div class="profile-card">
         <div class="profile-header">
           <div class="profile-avatar">
-            <img :src="avatarUrl" :alt="username" />
+            <img :src="userAvatar || 'https://via.placeholder.com/100'" :alt="username" />
             <div class="avatar-overlay">
               <label class="change-avatar">
                 <span>更换头像</span>
@@ -122,7 +122,7 @@
                   <button 
                     type="button" 
                     class="verify-btn" 
-                    @click="sendPhoneCode"
+                    @click="handleSendPhoneCode"
                     :disabled="countdown > 0"
                   >
                     {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
@@ -163,7 +163,7 @@
                   <button 
                     type="button" 
                     class="verify-btn"
-                    @click="sendEmailCode"
+                    @click="handleSendEmailCode"
                   >
                     获取验证码
                   </button>
@@ -217,15 +217,29 @@
 </template>
 
 <script setup>
-import { ref, inject, computed } from 'vue'
+import { ref, inject, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { userApi } from '../services/api'
+import { sendPhoneCode, bindPhone, sendEmailCode, bindEmail, changePassword } from '../api/auth'
+import { updateUsername } from '../api/user'
 
 const router = useRouter()
 const userStore = inject('userStore')
-const userAvatar = ref(userStore.state.avatar || '')
 const username = ref(userStore.state.username || '')
+
+// 添加更多关于头像的调试信息
+console.log('账户设置页面加载，当前用户状态:', {
+  username: userStore.state.username,
+  avatar: userStore.state.userData?.avatar,
+  userId: userStore.state.userData?.id
+})
+
+// 使用计算属性获取头像URL
+const userAvatar = computed(() => {
+  const avatar = userStore.state.userData?.avatar
+  console.log('头像计算属性获取到的值:', avatar)
+  return avatar || ''
+})
 
 // 用户数据
 const currentPassword = ref('')
@@ -245,15 +259,6 @@ const newUsername = ref('')
 
 const countdown = ref(0)
 
-// 计算属性：处理头像URL
-const avatarUrl = computed(() => {
-  const avatar = userStore.state.avatar
-  if (!avatar) {
-    return 'https://via.placeholder.com/100'
-  }
-  return avatar
-})
-
 // 切换区域显示
 const toggleSection = (section) => {
   activeSection.value = activeSection.value === section ? '' : section
@@ -262,7 +267,7 @@ const toggleSection = (section) => {
 // 保存个人资料
 const saveProfile = async () => {
   try {
-    await userApi.updateUsername(newUsername.value)
+    await updateUsername(newUsername.value)
     userStore.updateUsername(newUsername.value)
     username.value = newUsername.value
     alert('用户名修改成功')
@@ -291,13 +296,13 @@ const handleAvatarUpload = async (event) => {
     return
   }
 
-  if (!userStore.state.userId) {
+  if (!userStore.state.userData?.id) {
     alert('请先登录')
     router.push('/login')
     return
   }
 
-  console.log('当前用户ID:', userStore.state.userId)
+  console.log('当前用户ID:', userStore.state.userData?.id)
   console.log('当前Token:', userStore.state.token)
 
   try {
@@ -314,12 +319,18 @@ const handleAvatarUpload = async (event) => {
       throw new Error('未找到认证令牌，请重新登录')
     }
     
-    console.log('上传请求URL:', `/api/auth/avatar/${userStore.state.userId}`)
+    console.log('上传请求URL:', `/api/auth/avatar/${userStore.state.userData?.id}`)
     console.log('上传请求头:', {
       'Authorization': `Bearer ${token}`
     })
     
-    const response = await fetch(`/api/auth/avatar/${userStore.state.userId}`, {
+    // 构建完整的API URL
+    const baseUrl = 'http://localhost:5007'; // 确保这个URL与你的后端匹配
+    const apiUrl = `${baseUrl}/api/auth/avatar/${userStore.state.userData?.id}`;
+    
+    console.log('完整的API URL:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       body: formData,
       headers: {
@@ -331,14 +342,47 @@ const handleAvatarUpload = async (event) => {
     
     const responseData = await response.json()
     console.log('上传响应数据:', responseData)
+    console.log('上传响应数据类型:', typeof responseData)
+    console.log('上传响应数据JSON格式:', JSON.stringify(responseData, null, 2))
     
     if (!response.ok) {
       throw new Error(responseData.message || `上传失败: ${response.status}`)
     }
     
     if (responseData.success) {
-      userStore.updateAvatar(responseData.data.avatar_url)
-      userAvatar.value = responseData.data.avatar_url
+      // 检查avatar_url字段是否存在
+      if (!responseData.data || !responseData.data.avatar_url) {
+        console.error('响应数据中缺少avatar_url字段:', responseData)
+        throw new Error('服务器返回的数据格式不正确')
+      }
+      
+      const avatarUrl = responseData.data.avatar_url
+      console.log('获取到的新头像URL:', avatarUrl)
+      
+      // 检查头像URL格式
+      if (!avatarUrl.startsWith('http')) {
+        console.log('头像URL不是绝对路径，将添加基础URL')
+        const baseUrl = 'http://localhost:5007'
+        const fullAvatarUrl = avatarUrl.startsWith('/') 
+          ? `${baseUrl}${avatarUrl}` 
+          : `${baseUrl}/${avatarUrl}`
+        console.log('处理后的完整头像URL:', fullAvatarUrl)
+        
+        // 更新用户存储中的头像
+        userStore.updateAvatar(fullAvatarUrl)
+        
+        // 更新本地组件状态
+        userAvatar.value = fullAvatarUrl
+      } else {
+        console.log('头像URL已经是绝对路径:', avatarUrl)
+        
+        // 更新用户存储中的头像
+        userStore.updateAvatar(avatarUrl)
+        
+        // 更新本地组件状态
+        userAvatar.value = avatarUrl
+      }
+      
       alert('头像更新成功！')
     } else {
       throw new Error(responseData.message || '头像上传失败')
@@ -356,7 +400,7 @@ const updatePassword = async () => {
       alert('两次输入的密码不一致')
       return
     }
-    await userApi.updatePassword(currentPassword.value, newPassword.value)
+    await changePassword(currentPassword.value, newPassword.value)
     alert('密码修改成功')
     activeSection.value = ''
     currentPassword.value = ''
@@ -368,7 +412,7 @@ const updatePassword = async () => {
 }
 
 // 发送手机验证码
-const sendPhoneCode = async () => {
+const handleSendPhoneCode = async () => {
   try {
     if (!newPhone.value) {
       alert('请输入手机号')
@@ -382,7 +426,7 @@ const sendPhoneCode = async () => {
       return
     }
 
-    await userApi.sendPhoneCode(newPhone.value)
+    await sendPhoneCode(newPhone.value)
     alert('验证码已发送')
     
     // 开始倒计时
@@ -401,7 +445,7 @@ const sendPhoneCode = async () => {
 // 绑定手机号
 const updatePhone = async () => {
   try {
-    await userApi.bindPhone(newPhone.value, phoneCode.value)
+    await bindPhone(newPhone.value, phoneCode.value)
     alert('手机号绑定成功')
     phone.value = newPhone.value
     activeSection.value = ''
@@ -413,13 +457,13 @@ const updatePhone = async () => {
 }
 
 // 邮箱验证码
-const sendEmailCode = async () => {
+const handleSendEmailCode = async () => {
   try {
     if (!newEmail.value) {
       alert('请输入邮箱')
       return
     }
-    await userApi.sendEmailCode(newEmail.value)
+    await sendEmailCode(newEmail.value)
     alert('验证码已发送')
   } catch (error) {
     alert(error.response?.data?.message || '验证码发送失败')
@@ -429,7 +473,7 @@ const sendEmailCode = async () => {
 // 绑定邮箱
 const updateEmail = async () => {
   try {
-    await userApi.bindEmail(newEmail.value, emailCode.value)
+    await bindEmail(newEmail.value, emailCode.value)
     alert('邮箱绑定成功')
     email.value = newEmail.value
     activeSection.value = ''
