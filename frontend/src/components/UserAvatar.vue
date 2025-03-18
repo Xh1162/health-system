@@ -57,7 +57,7 @@ const handleAvatarChange = async (event) => {
     const formData = new FormData()
     formData.append('avatar', file)
     
-    const response = await fetch(`/api/auth/avatar/${userStore.state.userId}`, {
+    const response = await fetch(`/api/auth/avatar/${userStore.state.userData?.id}`, {
       method: 'POST',
       body: formData,
       headers: {
