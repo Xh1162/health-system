@@ -46,13 +46,13 @@
 
     <main class="main-content">
       <div class="page-header">
-        <h1>健康报告</h1>
-        <p class="subtitle">您的健康数据分析与趋势</p>
+        <h1>个性化健康生活方案</h1>
+        <p class="subtitle">根据您的真实记录数据，为您量身定制健康生活方式</p>
       </div>
 
       <div v-if="loading" class="loading-container">
         <div class="spinner"></div>
-        <p>正在加载您的健康报告...</p>
+        <p>正在生成您的健康方案...</p>
       </div>
 
       <div v-else-if="error" class="error-container">
@@ -63,9 +63,9 @@
       </div>
 
       <div v-else class="reports-content">
+        <Recommendations :recommendations-data="recommendationsData" />
         <DataAnalysis :analysis-data="analysisData" />
         <TrendAnalysis :trend-data="trendData" />
-        <Recommendations :recommendations-data="recommendationsData" />
       </div>
     </main>
   </div>

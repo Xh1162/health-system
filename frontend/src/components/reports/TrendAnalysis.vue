@@ -1,15 +1,14 @@
 <template>
   <div class="trend-analysis">
     <div class="trend-header">
-      <h2>趋势分析</h2>
-      <p class="subtitle">了解您的健康变化趋势</p>
+      <h2>健康趋势</h2>
+      <p class="subtitle">您的关键健康数据变化</p>
     </div>
 
     <div class="trend-grid">
       <!-- 运动趋势 -->
       <div class="trend-card">
         <div class="card-header">
-          <div class="header-icon">📈</div>
           <h3>运动趋势</h3>
         </div>
         <div class="trend-content">
@@ -28,21 +27,7 @@
                    :style="{ width: getTrendWidth(trendData.exerciseTrends.weeklyChange) }"></div>
             </div>
           </div>
-          <div class="trend-item">
-            <div class="trend-info">
-              <span class="trend-label">平均运动强度</span>
-              <div class="trend-value-container">
-                <span class="trend-value">{{ formatTrend(trendData.exerciseTrends.intensityAvg) }}</span>
-                <span :class="['trend-change', getChangeClass(trendData.exerciseTrends.intensityChange)]">
-                  {{ formatChange(trendData.exerciseTrends.intensityChange) }}
-                </span>
-              </div>
-            </div>
-            <div class="trend-bar-container">
-              <div :class="['trend-bar', getTrendClass(trendData.exerciseTrends.intensityChange)]" 
-                   :style="{ width: getTrendWidth(trendData.exerciseTrends.intensityChange) }"></div>
-            </div>
-          </div>
+          
           <div class="trend-item">
             <div class="trend-info">
               <span class="trend-label">运动频率</span>
@@ -58,13 +43,16 @@
                    :style="{ width: getTrendWidth(trendData.exerciseTrends.frequencyChange) }"></div>
             </div>
           </div>
+          
+          <div class="trend-insight simple">
+            <p class="insight-text">{{ getSimpleExerciseInsight() }}</p>
+          </div>
         </div>
       </div>
 
       <!-- 心情趋势 -->
       <div class="trend-card">
         <div class="card-header">
-          <div class="header-icon">🧠</div>
           <h3>心情趋势</h3>
         </div>
         <div class="trend-content">
@@ -83,32 +71,22 @@
                    :style="{ width: getTrendWidth(trendData.moodTrends.positiveChange) }"></div>
             </div>
           </div>
-          <div class="trend-item">
-            <div class="trend-info">
-              <span class="trend-label">情绪稳定性</span>
-              <div class="trend-value-container">
-                <span class="trend-value">{{ formatTrend(trendData.moodTrends.stability) }}</span>
-                <span :class="['trend-change', getChangeClass(trendData.moodTrends.stabilityChange)]">
-                  {{ formatChange(trendData.moodTrends.stabilityChange) }}
-                </span>
-              </div>
-            </div>
-            <div class="trend-bar-container">
-              <div :class="['trend-bar', getTrendClass(trendData.moodTrends.stabilityChange)]" 
-                   :style="{ width: getTrendWidth(trendData.moodTrends.stabilityChange) }"></div>
-            </div>
-          </div>
+          
           <div class="trend-item">
             <div class="trend-info">
               <span class="trend-label">主要情绪变化</span>
               <div class="trend-value-container">
                 <span class="trend-value mood-change">
-                  <span class="mood-icon">{{ getMoodIcon(trendData.moodTrends.previousMood) }}</span>
+                  <span class="prev-mood">{{ getMoodLabel(trendData.moodTrends.previousMood) }}</span>
                   <span class="arrow">→</span>
-                  <span class="mood-icon">{{ getMoodIcon(trendData.moodTrends.currentMood) }}</span>
+                  <span class="curr-mood">{{ getMoodLabel(trendData.moodTrends.currentMood) }}</span>
                 </span>
               </div>
             </div>
+          </div>
+          
+          <div class="trend-insight simple">
+            <p class="insight-text">{{ getSimpleMoodInsight() }}</p>
           </div>
         </div>
       </div>
@@ -116,7 +94,6 @@
       <!-- 健康趋势 -->
       <div class="trend-card">
         <div class="card-header">
-          <div class="header-icon">❤️</div>
           <h3>健康趋势</h3>
         </div>
         <div class="trend-content">
@@ -135,21 +112,7 @@
                    :style="{ width: getTrendWidth(trendData.healthTrends.sleepChange) }"></div>
             </div>
           </div>
-          <div class="trend-item">
-            <div class="trend-info">
-              <span class="trend-label">健康问题频率</span>
-              <div class="trend-value-container">
-                <span class="trend-value">{{ trendData.healthTrends.issueFrequency || 0 }}次/周</span>
-                <span :class="['trend-change', getChangeClass(-trendData.healthTrends.issueChange)]">
-                  {{ formatChange(-trendData.healthTrends.issueChange) }}
-                </span>
-              </div>
-            </div>
-            <div class="trend-bar-container">
-              <div :class="['trend-bar', getTrendClass(-trendData.healthTrends.issueChange)]" 
-                   :style="{ width: getTrendWidth(-trendData.healthTrends.issueChange) }"></div>
-            </div>
-          </div>
+          
           <div class="trend-item">
             <div class="trend-info">
               <span class="trend-label">整体健康评分</span>
@@ -165,27 +128,26 @@
                    :style="{ width: getTrendWidth(trendData.healthTrends.scoreChange) }"></div>
             </div>
           </div>
+          
+          <div class="trend-insight simple">
+            <p class="insight-text">{{ getSimpleHealthInsight() }}</p>
+          </div>
         </div>
       </div>
 
-      <!-- 日期范围 -->
+      <!-- 数据范围 -->
       <div class="date-range-card">
         <div class="card-header">
-          <div class="header-icon">📅</div>
           <h3>数据范围</h3>
         </div>
         <div class="date-range-content">
-          <div class="date-item">
-            <span class="date-label">开始日期</span>
-            <span class="date-value">{{ formatDate(trendData.dateRange?.start) }}</span>
+          <div class="date-range">
+            <span>{{ formatDate(trendData.dateRange?.start) }} - {{ formatDate(trendData.dateRange?.end) }}</span>
           </div>
-          <div class="date-divider"></div>
-          <div class="date-item">
-            <span class="date-label">结束日期</span>
-            <span class="date-value">{{ formatDate(trendData.dateRange?.end) }}</span>
-          </div>
-          <div class="date-note">
-            <p>数据基于过去30天的记录分析</p>
+          <div class="summary-box">
+            <div class="summary-content">
+              <button class="action-button primary">查看完整健康报告</button>
+            </div>
           </div>
         </div>
       </div>
@@ -267,45 +229,19 @@ const safeTrendData = computed(() => {
   }
 })
 
-const getMoodIcon = (type) => {
-  if (!type) return '😐'
-  const icons = {
-    happy: '😊',
-    calm: '😌',
-    sad: '😢',
-    angry: '😠',
-    anxious: '😰',
-    tired: '😫',
-    excited: '🤩',
-    bored: '😑'
-  }
-  return icons[type] || '😐'
-}
-
-const getHealthIcon = (type) => {
-  if (!type) return '🏥'
-  const icons = {
-    sleep_bad: '😴',
-    appetite_bad: '🍽️',
-    fatigue: '😫',
-    headache: '🤕',
-    muscle_sore: '💪',
-    cold: '🤒'
-  }
-  return icons[type] || '🏥'
-}
-
-const getHealthLabel = (type) => {
-  if (!type) return '未知'
+const getMoodLabel = (type) => {
+  if (!type) return '平静'
   const labels = {
-    sleep_bad: '睡眠不足',
-    appetite_bad: '没有胃口',
-    fatigue: '疲劳',
-    headache: '头痛',
-    muscle_sore: '肌肉酸痛',
-    cold: '感冒'
+    happy: '开心',
+    calm: '平静',
+    sad: '难过',
+    angry: '生气',
+    anxious: '焦虑',
+    tired: '疲惫',
+    excited: '兴奋',
+    bored: '无聊'
   }
-  return labels[type] || '未知'
+  return labels[type] || '平静'
 }
 
 const formatDate = (date) => {
@@ -354,102 +290,124 @@ const formatTrend = (value) => {
   }
   return labels[value] || '中等'
 }
+
+// 获取简化的运动趋势见解
+const getSimpleExerciseInsight = () => {
+  const weeklyChange = props.trendData?.exerciseTrends?.weeklyChange || 0
+  const frequencyChange = props.trendData?.exerciseTrends?.frequencyChange || 0
+  
+  if (weeklyChange > 10 && frequencyChange > 5) {
+    return '您的运动量持续增加，继续保持这个良好趋势。'
+  } else if (weeklyChange < -10) {
+    return '建议尝试增加每周运动时间，保持规律运动习惯。'
+  }
+  
+  return '您的运动数据相对稳定，坚持规律运动有助于健康。'
+}
+
+// 获取简化的心情趋势见解
+const getSimpleMoodInsight = () => {
+  const positiveChange = props.trendData?.moodTrends?.positiveChange || 0
+  const currentMood = props.trendData?.moodTrends?.currentMood || 'calm'
+  
+  if (positiveChange > 10) {
+    return '您的积极情绪比例在提升，这对健康非常有益。'
+  } else if (positiveChange < -10) {
+    return '建议尝试一些能提升心情的活动，如户外运动或社交活动。'
+  } else if (currentMood === 'anxious' || currentMood === 'tired') {
+    return '近期可能有些焦虑或疲劳，建议适当休息和放松。'
+  }
+  
+  return '您的情绪状态稳定，这是健康的积极信号。'
+}
+
+// 获取简化的健康趋势见解
+const getSimpleHealthInsight = () => {
+  const sleepChange = props.trendData?.healthTrends?.sleepChange || 0
+  const scoreChange = props.trendData?.healthTrends?.scoreChange || 0
+  
+  if (scoreChange > 5) {
+    return '您的健康评分有提升，继续保持良好的健康习惯。'
+  } else if (scoreChange < -5) {
+    return '留意您的健康状况变化，合理调整生活作息。'
+  } else if (sleepChange < -10) {
+    return '您的睡眠质量有所下降，建议调整睡眠习惯。'
+  }
+  
+  return '整体健康趋势稳定，维持健康生活方式是关键。'
+}
 </script>
 
 <style scoped>
 .trend-analysis {
-  padding: 1rem;
-  animation: fadeIn 0.5s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  margin-top: 1.5rem;
 }
 
 .trend-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .trend-header h2 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   color: #1e293b;
-  margin-bottom: 0.5rem;
-  font-weight: 700;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
 }
 
 .subtitle {
   color: #64748b;
-  font-size: 1.1rem;
+  font-size: 0.875rem;
 }
 
 .trend-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .trend-card, .date-range-card {
   background: white;
-  border-radius: 1.25rem;
-  padding: 1.75rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
-  transition: all 0.3s ease;
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(226, 232, 240, 0.8);
-  animation: cardFadeIn 0.5s ease-out forwards;
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.trend-card:nth-child(1) { animation-delay: 0.1s; }
-.trend-card:nth-child(2) { animation-delay: 0.2s; }
-.trend-card:nth-child(3) { animation-delay: 0.3s; }
-.date-range-card { animation-delay: 0.4s; }
-
-@keyframes cardFadeIn {
-  to { opacity: 1; transform: translateY(0); }
 }
 
 .trend-card:hover, .date-range-card:hover {
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.01);
-  transform: translateY(-5px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
 }
 
 .card-header {
-  margin-bottom: 1.75rem;
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-}
-
-.header-icon {
-  font-size: 1.5rem;
-  background: #f0f9ff;
-  width: 2.5rem;
-  height: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.75rem;
+  justify-content: space-between;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .card-header h3 {
   color: #1e293b;
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
+  margin: 0;
 }
 
 .trend-content {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .trend-item {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .trend-info {
@@ -467,20 +425,20 @@ const formatTrend = (value) => {
 .trend-value-container {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .trend-value {
   color: #1e293b;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
 .trend-change {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.5rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
 }
 
 .trend-change.positive {
@@ -499,17 +457,16 @@ const formatTrend = (value) => {
 }
 
 .trend-bar-container {
-  height: 8px;
+  height: 6px;
   background: #f1f5f9;
-  border-radius: 4px;
+  border-radius: 3px;
   overflow: hidden;
   position: relative;
 }
 
 .trend-bar {
   height: 100%;
-  border-radius: 4px;
-  transition: width 1s ease;
+  border-radius: 3px;
   position: absolute;
   left: 0;
 }
@@ -532,12 +489,13 @@ const formatTrend = (value) => {
   align-items: center;
   gap: 0.5rem;
   background: #f8fafc;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
 }
 
-.mood-icon {
-  font-size: 1.25rem;
+.prev-mood, .curr-mood {
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .arrow {
@@ -545,52 +503,62 @@ const formatTrend = (value) => {
   font-weight: 600;
 }
 
-/* 日期范围卡片样式 */
 .date-range-content {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 
-.date-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.date-range {
+  text-align: center;
+  padding: 0.5rem;
   background: #f8fafc;
-  padding: 1rem;
-  border-radius: 0.75rem;
-  transition: all 0.3s ease;
-}
-
-.date-item:hover {
-  background: #f0f9ff;
-  transform: translateY(-2px);
-}
-
-.date-label {
-  color: #64748b;
+  border-radius: 0.5rem;
   font-size: 0.875rem;
+  color: #1e293b;
   font-weight: 500;
 }
 
-.date-value {
-  color: #1e293b;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.date-divider {
-  height: 1px;
-  background: #e2e8f0;
-  margin: 0.5rem 0;
-}
-
-.date-note {
-  text-align: center;
-  color: #64748b;
-  font-size: 0.875rem;
-  font-style: italic;
+.trend-insight.simple {
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
   margin-top: 0.5rem;
+}
+
+.insight-text {
+  color: #334155;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.summary-box {
+  margin-top: 1rem;
+}
+
+.summary-content {
+  display: flex;
+  justify-content: center;
+}
+
+.action-button {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-size: 0.875rem;
+}
+
+.action-button.primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.action-button.primary:hover {
+  background: #2563eb;
 }
 
 @media (max-width: 1024px) {
@@ -603,7 +571,7 @@ const formatTrend = (value) => {
   .trend-info {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: 0.25rem;
   }
   
   .trend-value-container {
@@ -612,11 +580,11 @@ const formatTrend = (value) => {
   }
   
   .trend-card, .date-range-card {
-    padding: 1.25rem;
+    padding: 1rem;
   }
   
   .card-header h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 }
 </style> 
