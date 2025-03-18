@@ -350,13 +350,13 @@ const handleAvatarUpload = async (event) => {
     }
     
     if (responseData.success) {
-      // 检查avatar_url字段是否存在
-      if (!responseData.data || !responseData.data.avatar_url) {
-        console.error('响应数据中缺少avatar_url字段:', responseData)
+      // 检查avatar字段是否存在
+      if (!responseData.data || !responseData.data.avatar) {
+        console.error('响应数据中缺少avatar字段:', responseData)
         throw new Error('服务器返回的数据格式不正确')
       }
       
-      const avatarUrl = responseData.data.avatar_url
+      const avatarUrl = responseData.data.avatar
       console.log('获取到的新头像URL:', avatarUrl)
       
       // 检查头像URL格式

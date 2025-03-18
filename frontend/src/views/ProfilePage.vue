@@ -446,15 +446,16 @@ const handleAvatarChange = async (event) => {
     console.log('上传响应数据:', response)
     
     if (response.success) {
-      console.log('头像上传成功，URL:', response.avatar_url)
-      userStore.updateAvatar(response.avatar_url)
+      const avatarUrl = response.data.avatar
+      console.log('头像上传成功，URL:', avatarUrl)
+      userStore.updateAvatar(avatarUrl)
       console.log('更新后的头像URL:', userStore.state.userData?.avatar)
       alert('头像更新成功')
       
       // 强制刷新头像
       const avatarImg = document.querySelector('.avatar')
       if (avatarImg) {
-        avatarImg.src = response.avatar_url + '?t=' + new Date().getTime()
+        avatarImg.src = avatarUrl + '?t=' + new Date().getTime()
       }
     } else {
       throw new Error(response.message || '头像上传失败')

@@ -68,7 +68,7 @@ const handleAvatarChange = async (event) => {
     const data = await response.json()
     
     if (data.success) {
-      userStore.updateAvatar(data.data.avatar_url)
+      userStore.updateAvatar(data.data.avatar)
       alert('头像更新成功！')
     } else {
       throw new Error(data.message || '头像上传失败')

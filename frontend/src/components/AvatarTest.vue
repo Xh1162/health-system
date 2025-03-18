@@ -127,8 +127,8 @@ const uploadAvatar = async () => {
       uploadStatus.value = '上传成功'
       
       // 更新头像
-      if (data.data?.avatar_url) {
-        const avatarUrl = data.data.avatar_url
+      if (data.data?.avatar) {
+        const avatarUrl = data.data.avatar
         
         // 处理相对路径
         const fullAvatarUrl = avatarUrl.startsWith('http') 
@@ -140,7 +140,7 @@ const uploadAvatar = async () => {
         console.log('新头像URL:', fullAvatarUrl)
         userStore.updateAvatar(fullAvatarUrl)
       } else {
-        console.error('响应中缺少avatar_url:', data)
+        console.error('响应中缺少avatar:', data)
         uploadStatus.value = '上传成功但未获取到新头像URL'
       }
     } else {
