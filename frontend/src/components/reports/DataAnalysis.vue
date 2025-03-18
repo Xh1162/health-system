@@ -94,68 +94,77 @@
         </div>
       </div>
 
-      <!-- 健康状况分析 -->
+      <!-- 饮食分析 -->
       <div class="analysis-card">
         <div class="card-header">
-          <h3>健康状况</h3>
+          <h3>饮食分析</h3>
         </div>
-        <div class="health-stats">
-          <div class="health-score-container">
-            <h4>整体健康指数</h4>
-            <div class="health-score-wrapper">
-              <div class="health-gauge">
-                <svg viewBox="0 0 120 120" class="gauge">
-                  <circle class="gauge-bg" cx="60" cy="60" r="50" />
-                  <circle class="gauge-value" cx="60" cy="60" r="50" 
-                          :stroke="getHealthGaugeColor()" 
-                          :stroke-dasharray="`${getHealthPercentage()}, 314`" />
-                  <text x="60" y="65" class="gauge-text">{{ getHealthScore() }}</text>
-                </svg>
-                <div class="gauge-level">{{ getHealthLevel() }}</div>
+        <div class="diet-stats">
+          <div class="diet-summary">
+            <h4>饮食记录统计</h4>
+            <div class="stat-row">
+              <div class="stat-item">
+                <span class="stat-label">记录总数</span>
+                <span class="stat-value highlight">{{ analysisData.dietStats?.totalRecords || 0 }}</span>
               </div>
-              <div class="health-factors">
-                <div class="factor">
-                  <span class="factor-label">活动指数</span>
-                  <div class="factor-bar-container">
-                    <div class="factor-bar" :style="{ width: '75%', background: 'linear-gradient(to right, #60a5fa, #3b82f6)' }"></div>
-                  </div>
-                </div>
-                <div class="factor">
-                  <span class="factor-label">情绪指数</span>
-                  <div class="factor-bar-container">
-                    <div class="factor-bar" :style="{ width: '82%', background: 'linear-gradient(to right, #34d399, #10b981)' }"></div>
-                  </div>
-                </div>
-                <div class="factor">
-                  <span class="factor-label">睡眠指数</span>
-                  <div class="factor-bar-container">
-                    <div class="factor-bar" :style="{ width: '68%', background: 'linear-gradient(to right, #60a5fa, #3b82f6)' }"></div>
-                  </div>
-                </div>
+              <div class="stat-item">
+                <span class="stat-label">规律饮食率</span>
+                <span class="stat-value highlight">{{ analysisData.dietStats?.regularityRate || 0 }}%</span>
               </div>
             </div>
           </div>
           
-          <div class="common-issues">
-            <h4>健康提示</h4>
-            <div v-if="analysisData.healthStats.commonIssues && analysisData.healthStats.commonIssues.length > 0" class="issues-list">
-              <div v-for="issue in analysisData.healthStats.commonIssues.slice(0, 2)" 
-                   :key="issue.type" 
-                   class="issue-item">
-                <div class="issue-details">
-                  <span class="issue-label">{{ getHealthLabel(issue.type) }}</span>
-                  <span class="issue-suggestion">{{ getSimpleHealthSuggestion(issue.type) }}</span>
+          <div class="meal-distribution">
+            <h4>膳食分布</h4>
+            <div class="meal-distribution-chart">
+              <div v-for="(item, index) in getDietDistribution()" 
+                   :key="index" 
+                   class="meal-item">
+                <div class="meal-label">{{ item.name }}</div>
+                <div class="meal-bar-container">
+                  <div class="meal-bar" :style="{ width: item.percentage + '%', background: getMealColor(item.name) }"></div>
                 </div>
-                <span class="issue-count">{{ issue.count }}次</span>
+                <div class="meal-value">{{ item.value }}%</div>
               </div>
             </div>
-            <div v-else class="empty-issues">
-              <p>暂无健康问题记录，继续保持健康的生活方式！</p>
+          </div>
+          
+          <div class="food-categories">
+            <h4>食物类别</h4>
+            <div class="food-category-grid">
+              <div class="food-category">
+                <div class="category-icon">🍲</div>
+                <div class="category-details">
+                  <span class="category-name">主食</span>
+                  <span class="category-percentage">{{ analysisData.dietStats?.categories?.staple || 30 }}%</span>
+                </div>
+              </div>
+              <div class="food-category">
+                <div class="category-icon">🥩</div>
+                <div class="category-details">
+                  <span class="category-name">蛋白质</span>
+                  <span class="category-percentage">{{ analysisData.dietStats?.categories?.protein || 25 }}%</span>
+                </div>
+              </div>
+              <div class="food-category">
+                <div class="category-icon">🥗</div>
+                <div class="category-details">
+                  <span class="category-name">蔬果</span>
+                  <span class="category-percentage">{{ analysisData.dietStats?.categories?.vegetables || 35 }}%</span>
+                </div>
+              </div>
+              <div class="food-category">
+                <div class="category-icon">🍭</div>
+                <div class="category-details">
+                  <span class="category-name">零食甜点</span>
+                  <span class="category-percentage">{{ analysisData.dietStats?.categories?.snacks || 10 }}%</span>
+                </div>
+              </div>
             </div>
           </div>
           
           <div class="data-insights">
-            <p class="insight-text">{{ getSimpleHealthInsight() }}</p>
+            <p class="insight-text">{{ getSimpleDietInsight() }}</p>
           </div>
         </div>
       </div>
@@ -194,8 +203,21 @@ const props = defineProps({
         },
         mostFrequent: 'calm'
       },
-      healthStats: {
-        commonIssues: []
+      dietStats: {
+        totalRecords: 0,
+        regularityRate: 0,
+        mealDistribution: {
+          breakfast: 25,
+          lunch: 30,
+          dinner: 30,
+          snack: 15
+        },
+        categories: {
+          staple: 30,
+          protein: 25,
+          vegetables: 35,
+          snacks: 10
+        }
       }
     })
   }
@@ -227,8 +249,21 @@ const safeAnalysisData = computed(() => {
       },
       mostFrequent: props.analysisData?.moodStats?.mostFrequent || 'calm'
     },
-    healthStats: {
-      commonIssues: props.analysisData?.healthStats?.commonIssues || []
+    dietStats: {
+      totalRecords: props.analysisData?.dietStats?.totalRecords || 0,
+      regularityRate: props.analysisData?.dietStats?.regularityRate || 0,
+      mealDistribution: props.analysisData?.dietStats?.mealDistribution || {
+        breakfast: 25,
+        lunch: 30,
+        dinner: 30,
+        snack: 15
+      },
+      categories: props.analysisData?.dietStats?.categories || {
+        staple: 30,
+        protein: 25,
+        vegetables: 35,
+        snacks: 10
+      }
     }
   }
 })
@@ -261,19 +296,6 @@ const getMoodLabel = (type) => {
     bored: '无聊'
   }
   return labels[type] || '平静'
-}
-
-const getHealthLabel = (type) => {
-  if (!type) return '未知'
-  const labels = {
-    sleep_bad: '睡眠不足',
-    appetite_bad: '没有胃口',
-    fatigue: '疲劳',
-    headache: '头痛',
-    muscle_sore: '肌肉酸痛',
-    cold: '感冒'
-  }
-  return labels[type] || '未知'
 }
 
 const getPercentage = (value) => {
@@ -336,66 +358,75 @@ const getSimpleMoodInsight = () => {
   return "您的情绪状态相对稳定，保持平衡的心态对健康有益。"
 }
 
-// 获取健康评分
-const getHealthScore = () => {
-  return 78
-}
-
-// 获取健康仪表盘百分比
-const getHealthPercentage = () => {
-  const score = getHealthScore()
-  return Math.round(score * 3.14)
-}
-
-// 获取健康仪表盘颜色
-const getHealthGaugeColor = () => {
-  const score = getHealthScore()
-  if (score >= 80) return '#10b981'
-  if (score >= 60) return '#3b82f6'
-  if (score >= 40) return '#f59e0b'
-  return '#ef4444'
-}
-
-// 获取健康等级
-const getHealthLevel = () => {
-  const score = getHealthScore()
-  if (score >= 80) return '优'
-  if (score >= 60) return '良'
-  if (score >= 40) return '中'
-  return '差'
-}
-
-// 获取简化的健康建议
-const getSimpleHealthSuggestion = (type) => {
-  const suggestions = {
-    sleep_bad: '尝试规律的睡眠时间',
-    appetite_bad: '少量多餐，增加饮食多样性',
-    fatigue: '保证足够休息，避免过度疲劳',
-    headache: '注意用眼习惯，保持充分水分',
-    muscle_sore: '运动后适当拉伸放松肌肉',
-    cold: '保暖并增强免疫力'
-  }
-  return suggestions[type] || '关注身体状况变化'
-}
-
-// 获取简化的健康见解
-const getSimpleHealthInsight = () => {
-  const score = getHealthScore()
-  
-  if (score >= 80) {
-    return "您的健康状况良好，继续保持健康的生活方式。"
-  } else if (score >= 60) {
-    return "您的健康状况总体不错，注意保持规律作息和适量运动。"
-  } else {
-    return "建议关注身体状况，增强锻炼并保持健康饮食习惯。"
-  }
-}
-
 // 获取前几位的情绪类型
 const getTopMoods = () => {
   const distribution = props.analysisData?.moodStats?.distribution || {}
   const moodsArray = Object.entries(distribution).map(([type, value]) => ({ type, value }))
   return moodsArray.sort((a, b) => b.value - a.value).slice(0, 3)
+}
+
+// 获取饮食分布数据
+const getDietDistribution = () => {
+  // 默认数据
+  const defaultDistribution = [
+    { name: '早餐', value: 25, percentage: 25 },
+    { name: '午餐', value: 30, percentage: 30 },
+    { name: '晚餐', value: 30, percentage: 30 },
+    { name: '加餐', value: 15, percentage: 15 }
+  ]
+  
+  // 如果有实际数据，使用实际数据
+  if (props.analysisData?.dietStats?.mealDistribution) {
+    return Object.entries(props.analysisData.dietStats.mealDistribution).map(([name, value]) => {
+      return {
+        name: getMealLabel(name),
+        value,
+        percentage: value
+      }
+    })
+  }
+  
+  return defaultDistribution
+}
+
+// 获取膳食标签
+const getMealLabel = (type) => {
+  const labels = {
+    breakfast: '早餐',
+    lunch: '午餐',
+    dinner: '晚餐',
+    snack: '加餐'
+  }
+  return labels[type] || type
+}
+
+// 获取膳食颜色
+const getMealColor = (name) => {
+  const colors = {
+    '早餐': 'linear-gradient(to right, #60a5fa, #3b82f6)',
+    '午餐': 'linear-gradient(to right, #34d399, #10b981)',
+    '晚餐': 'linear-gradient(to right, #f59e0b, #d97706)',
+    '加餐': 'linear-gradient(to right, #a78bfa, #8b5cf6)'
+  }
+  return colors[name] || 'linear-gradient(to right, #60a5fa, #3b82f6)'
+}
+
+// 饮食分析见解
+const getSimpleDietInsight = () => {
+  const totalRecords = props.analysisData?.dietStats?.totalRecords || 0
+  const regularityRate = props.analysisData?.dietStats?.regularityRate || 0
+  
+  if (totalRecords < 5) {
+    return "记录不足，建议坚持记录饮食习惯，有助于分析饮食模式。"
+  }
+  
+  if (regularityRate >= 80) {
+    return "您的饮食规律性良好，继续保持健康均衡的饮食习惯。"
+  } else if (regularityRate >= 60) {
+    return "您的饮食较为规律，建议更加注重三餐平衡和营养搭配。"
+  } else {
+    return "您的饮食规律性有待提高，建议规律进食，避免暴饮暴食。"
+  }
 }
 </script>
 
@@ -502,12 +533,12 @@ const getTopMoods = () => {
   margin-top: 0.25rem;
 }
 
-.intensity-distribution, .mood-distribution, .common-issues {
+.intensity-distribution, .mood-distribution {
   margin-top: 1rem;
   margin-bottom: 1rem;
 }
 
-.intensity-distribution h4, .mood-distribution h4, .common-issues h4, .emotion-balance-score h4 {
+.intensity-distribution h4, .mood-distribution h4, .emotion-balance-score h4 {
   font-size: 0.9375rem;
   color: #334155;
   margin: 0 0 0.75rem 0;
@@ -621,143 +652,6 @@ const getTopMoods = () => {
   color: #1e293b;
 }
 
-.health-score-container {
-  margin-bottom: 1.5rem;
-}
-
-.health-score-wrapper {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-}
-
-.health-gauge {
-  position: relative;
-  width: 100px;
-  height: 100px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.gauge {
-  transform: rotate(-90deg);
-  overflow: visible;
-}
-
-.gauge-bg {
-  fill: none;
-  stroke: #f1f5f9;
-  stroke-width: 6;
-}
-
-.gauge-value {
-  fill: none;
-  stroke-width: 6;
-  stroke-linecap: round;
-  transition: stroke-dasharray 1s ease;
-}
-
-.gauge-text {
-  transform: rotate(90deg);
-  font-size: 16px;
-  font-weight: bold;
-  fill: #1e293b;
-  text-anchor: middle;
-  dominant-baseline: middle;
-}
-
-.gauge-level {
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #334155;
-}
-
-.health-factors {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.factor {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.factor-label {
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
-.factor-bar-container {
-  height: 6px;
-  background: #f1f5f9;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.factor-bar {
-  height: 100%;
-  border-radius: 3px;
-}
-
-.issues-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.issue-item {
-  background: #f8fafc;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.25rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.issue-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.issue-label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: #334155;
-  margin-bottom: 0.125rem;
-}
-
-.issue-suggestion {
-  font-size: 0.75rem;
-  color: #64748b;
-}
-
-.issue-count {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-}
-
-.empty-issues {
-  text-align: center;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 0.25rem;
-}
-
-.empty-issues p {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: #64748b;
-}
-
 .data-insights {
   background: #f8fafc;
   padding: 0.75rem;
@@ -773,11 +667,6 @@ const getTopMoods = () => {
 }
 
 @media (max-width: 768px) {
-  .health-score-wrapper {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
   .stat-row {
     flex-direction: column;
     gap: 0.75rem;
@@ -786,5 +675,102 @@ const getTopMoods = () => {
   .stat-item {
     min-width: auto;
   }
+}
+
+/* 饮食分析样式 */
+.diet-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.diet-summary h4, 
+.meal-distribution h4,
+.food-categories h4 {
+  color: #475569;
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem 0;
+  font-weight: 600;
+}
+
+.meal-distribution-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.meal-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.meal-label {
+  width: 3rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.meal-bar-container {
+  flex: 1;
+  height: 0.75rem;
+  background: #f1f5f9;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.meal-bar {
+  height: 100%;
+  border-radius: 1rem;
+}
+
+.meal-value {
+  min-width: 2.5rem;
+  text-align: right;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.food-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.food-category {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.category-icon {
+  font-size: 1.25rem;
+}
+
+.category-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.category-name {
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.category-percentage {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.data-insights p {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0;
+  color: #334155;
 }
 </style> 

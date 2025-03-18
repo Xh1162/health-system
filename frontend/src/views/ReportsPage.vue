@@ -65,7 +65,6 @@
       <div v-else class="reports-content">
         <Recommendations :recommendations-data="recommendationsData" />
         <DataAnalysis :analysis-data="analysisData" />
-        <TrendAnalysis :trend-data="trendData" />
       </div>
     </main>
   </div>
@@ -75,7 +74,6 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import DataAnalysis from '../components/reports/DataAnalysis.vue'
-import TrendAnalysis from '../components/reports/TrendAnalysis.vue'
 import Recommendations from '../components/reports/Recommendations.vue'
 import useUserStore from '../stores/userStore'
 import { getReportsSummary } from '../api/reports'
@@ -86,6 +84,7 @@ const showUserMenu = ref(false)
 const loading = ref(true)
 const error = ref(null)
 const userMenuRef = ref(null)
+const refreshInterval = ref(null)
 
 // 用户信息
 const username = computed(() => userStore.state.userData?.username || '用户')
@@ -106,6 +105,29 @@ const toggleUserMenu = () => {
 const handleLogout = () => {
   userStore.logout()
   router.push('/login')
+}
+
+// 开始自动刷新
+const startAutoRefresh = () => {
+  // 每5分钟刷新一次数据
+  refreshInterval.value = setInterval(() => {
+    console.log('自动刷新报告数据...')
+    fetchReportData()
+  }, 5 * 60 * 1000)
+}
+
+// 停止自动刷新
+const stopAutoRefresh = () => {
+  if (refreshInterval.value) {
+    clearInterval(refreshInterval.value)
+    refreshInterval.value = null
+  }
+}
+
+// 监听记录更新事件
+const handleRecordUpdate = () => {
+  console.log('收到记录更新事件，刷新报告数据...')
+  fetchReportData()
 }
 
 // 分析数据
@@ -133,40 +155,21 @@ const analysisData = ref({
     },
     mostFrequent: 'calm'
   },
-  healthStats: {
-    commonIssues: []
-  }
-})
-
-// 趋势数据
-const trendData = ref({
-  exerciseTrends: {
-    weeklyMinutes: 0,
-    weeklyChange: 0,
-    intensityAvg: 'medium',
-    intensityChange: 0,
-    frequency: 0,
-    frequencyChange: 0
-  },
-  moodTrends: {
-    positiveRate: 0,
-    positiveChange: 0,
-    stability: 'medium',
-    stabilityChange: 0,
-    previousMood: 'calm',
-    currentMood: 'calm'
-  },
-  healthTrends: {
-    sleepQuality: 'medium',
-    sleepChange: 0,
-    issueFrequency: 0,
-    issueChange: 0,
-    overallScore: 0,
-    scoreChange: 0
-  },
-  dateRange: {
-    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-    end: new Date()
+  dietStats: {
+    totalRecords: 0,
+    regularityRate: 0,
+    mealDistribution: {
+      breakfast: 25,
+      lunch: 30,
+      dinner: 30,
+      snack: 15
+    },
+    categories: {
+      staple: 30,
+      protein: 25,
+      vegetables: 35,
+      snacks: 10
+    }
   }
 })
 
@@ -226,43 +229,80 @@ const fetchReportData = async () => {
     }
     
     // 尝试从API获取数据
-    try {
-      const data = await getReportsSummary()
-      console.log('获取到的报告数据:', data)
-      
-      if (!data || ((!data.analysis || Object.keys(data.analysis).length === 0) && 
-                   (!data.trends || Object.keys(data.trends).length === 0))) {
-        console.log('API返回为空，使用模拟数据')
-        useMockData()
-      } else {
-        // 更新分析数据
-        if (data.analysis && typeof data.analysis === 'object') {
-          analysisData.value = {
-            ...analysisData.value,
-            ...data.analysis
-          }
+    console.log('开始获取报告数据...')
+    const data = await getReportsSummary()
+    console.log('API返回的原始数据:', data)
+    
+    // 检查是否有错误
+    if (data.error) {
+      console.error('API返回错误:', data.message)
+      error.value = data.message
+      return
+    }
+    
+    // 检查是否有数据
+    if (!data || !data.hasData) {
+      console.log('API返回空数据或没有记录，使用模拟数据')
+      useMockData()
+      return
+    }
+
+    // 更新分析数据
+    analysisData.value = {
+      exerciseStats: {
+        totalMinutes: data.exerciseMinutes || 0,
+        averagePerDay: data.exerciseMinutes ? Math.round(data.exerciseMinutes / 7) : 0,
+        mostFrequentType: data.topExerciseType || '步行',
+        intensityDistribution: data.intensityDistribution || {
+          light: 33,
+          medium: 33,
+          high: 34
         }
-        
-        // 更新趋势数据
-        if (data.trends && typeof data.trends === 'object') {
-          trendData.value = {
-            ...trendData.value,
-            ...data.trends
-          }
+      },
+      moodStats: {
+        distribution: data.moodDistribution || {
+          happy: 25,
+          calm: 25,
+          normal: 25,
+          sad: 15,
+          angry: 10
+        },
+        mostFrequent: data.topMood || '平静'
+      },
+      dietStats: {
+        totalRecords: data.foodCount || 0,
+        regularityRate: data.regularityRate || 75,
+        mealDistribution: data.mealDistribution || {
+          breakfast: 25,
+          lunch: 30,
+          dinner: 30,
+          snack: 15
+        },
+        categories: data.foodCategories || {
+          staple: 30,
+          protein: 25,
+          vegetables: 35,
+          snacks: 10
         }
       }
-    } catch (apiError) {
-      console.error('API调用失败:', apiError)
-      // 在开发环境中使用模拟数据
-      console.log('使用模拟数据，因为API调用失败')
-      useMockData()
     }
-  } catch (error) {
-    console.error('获取报告数据失败:', error)
-    error.value = error.message || '获取数据时发生错误'
     
-    // 在开发环境中使用模拟数据
-    console.log('使用模拟数据，因为发生错误')
+    // 更新健康提示
+    if (data.healthTip) {
+      recommendationsData.value.healthTips[0].content = data.healthTip
+    }
+    
+    console.log('数据更新完成:', {
+      analysisData: analysisData.value
+    })
+    
+  } catch (apiError) {
+    console.error('API调用失败:', apiError)
+    error.value = '获取数据失败，请稍后重试'
+    // 如果是500错误，可能是后端问题
+    if (apiError.response?.status === 500) {
+      error.value = '服务器内部错误，请联系管理员'
+    }
     useMockData()
   } finally {
     loading.value = false
@@ -270,9 +310,8 @@ const fetchReportData = async () => {
 }
 
 // 使用模拟数据（用于开发和演示）
-const useMockData = () => {
-  // 模拟分析数据
-  analysisData.value = {
+const getMockData = () => {
+  return {
     exerciseStats: {
       totalMinutes: 840,
       averagePerDay: 28,
@@ -296,45 +335,33 @@ const useMockData = () => {
       },
       mostFrequent: 'happy'
     },
-    healthStats: {
-      commonIssues: [
-        { type: 'sleep_bad', count: 3 },
-        { type: 'headache', count: 2 },
-        { type: 'fatigue', count: 4 }
-      ]
+    dietStats: {
+      totalRecords: 18,
+      regularityRate: 75,
+      mealDistribution: {
+        breakfast: 25,
+        lunch: 30,
+        dinner: 30,
+        snack: 15
+      },
+      categories: {
+        staple: 30,
+        protein: 25,
+        vegetables: 35,
+        snacks: 10
+      }
     }
   }
+}
+
+const useMockData = () => {
+  const mockData = getMockData()
   
-  // 模拟趋势数据
-  trendData.value = {
-    exerciseTrends: {
-      weeklyMinutes: 210,
-      weeklyChange: 15,
-      intensityAvg: 'medium',
-      intensityChange: 5,
-      frequency: 5,
-      frequencyChange: 10
-    },
-    moodTrends: {
-      positiveRate: 65,
-      positiveChange: 8,
-      stability: 'high',
-      stabilityChange: 12,
-      previousMood: 'calm',
-      currentMood: 'happy'
-    },
-    healthTrends: {
-      sleepQuality: 'medium',
-      sleepChange: 5,
-      issueFrequency: 2,
-      issueChange: -15,
-      overallScore: 78,
-      scoreChange: 6
-    },
-    dateRange: {
-      start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-      end: new Date()
-    }
+  // 使用模拟数据
+  analysisData.value = {
+    exerciseStats: mockData.exerciseStats,
+    moodStats: mockData.moodStats,
+    dietStats: mockData.dietStats
   }
 }
 
@@ -348,10 +375,18 @@ onMounted(() => {
   
   // 获取报告数据
   fetchReportData()
+  
+  // 开始自动刷新
+  startAutoRefresh()
+  
+  // 监听记录更新事件
+  window.addEventListener('recordUpdated', handleRecordUpdate)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', () => {})
+  stopAutoRefresh()
+  window.removeEventListener('recordUpdated', handleRecordUpdate)
 })
 </script>
 

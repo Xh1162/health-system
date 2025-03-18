@@ -247,91 +247,243 @@ class ReportService:
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         
-        # 获取食物记录
-        food_records = Record.query.filter(
-            Record.user_id == user_id,
-            Record.created_at >= start_date,
-            Record.created_at <= end_date
-        ).all()
-        
-        # 获取运动记录
-        exercise_records = Record.query.filter(
-            Record.user_id == user_id,
-            Record.created_at >= start_date,
-            Record.created_at <= end_date
-        ).all()
-        
-        # 获取心情记录
-        mood_records = Record.query.filter(
-            Record.user_id == user_id,
-            Record.created_at >= start_date,
-            Record.created_at <= end_date
-        ).all()
-        
-        # 获取健康记录
-        health_records = Record.query.filter(
-            Record.user_id == user_id,
-            Record.created_at >= start_date,
-            Record.created_at <= end_date
-        ).all()
-        
-        print(f"记录数量 - 食物: {len(food_records)}, 运动: {len(exercise_records)}, 心情: {len(mood_records)}, 健康: {len(health_records)}")
-        
-        # 计算食物记录数量
-        food_count = len(food_records)
-        
-        # 计算运动总时长
-        exercise_minutes = sum(record.duration for record in exercise_records)
-        
-        # 计算平均心情分数
-        mood_values = {'happy': 5, 'calm': 4, 'normal': 3, 'sad': 2, 'angry': 1}
-        mood_scores = [mood_values.get(record.mood_type, 3) for record in mood_records]
-        mood_score = sum(mood_scores) / len(mood_scores) if mood_scores else 0
-        
-        # 获取最常见心情
-        mood_counts = {}
-        for record in mood_records:
-            mood_counts[record.mood_type] = mood_counts.get(record.mood_type, 0) + 1
-        
-        top_mood = max(mood_counts.items(), key=lambda x: x[1])[0] if mood_counts else None
-        mood_labels = {
-            'happy': '开心',
-            'calm': '平静',
-            'normal': '一般',
-            'sad': '难过',
-            'angry': '生气'
-        }
-        top_mood = mood_labels.get(top_mood, top_mood) if top_mood else '暂无数据'
-        
-        # 计算心情趋势
-        mood_trend = '上升' if len(mood_scores) >= 2 and mood_scores[-1] > mood_scores[0] else '平稳'
-        
-        # 计算健康评分
-        health_values = {'energetic': 5, 'good': 4, 'normal': 3, 'tired': 2}
-        health_scores = [health_values.get(record.feeling, 3) for record in health_records]
-        health_score = sum(health_scores) / len(health_scores) if health_scores else 0
-        
-        # 生成健康建议
-        health_tip = '保持良好的生活习惯'
-        if health_score < 3:
-            health_tip = '注意休息，保持良好的作息'
-        elif exercise_minutes < 60:
-            health_tip = '建议增加运动时间，保持身体活力'
-        elif food_count < 5:
-            health_tip = '注意饮食规律，保持营养均衡'
-        
-        result = {
-            'foodCount': food_count,
-            'exerciseMinutes': exercise_minutes,
-            'moodScore': mood_score,
-            'healthScore': health_score,
-            'topMood': top_mood,
-            'moodTrend': mood_trend,
-            'healthTip': health_tip
-        }
-        
-        print(f"健康摘要数据结果: {result}")
-        return result
+        try:
+            # 获取食物记录
+            food_records = Record.query.filter(
+                Record.user_id == user_id,
+                Record.type == 'food',
+                Record.created_at >= start_date,
+                Record.created_at <= end_date
+            ).all()
+            
+            # 获取运动记录
+            exercise_records = Record.query.filter(
+                Record.user_id == user_id,
+                Record.type == 'exercise',
+                Record.created_at >= start_date,
+                Record.created_at <= end_date
+            ).all()
+            
+            # 获取心情记录
+            mood_records = Record.query.filter(
+                Record.user_id == user_id,
+                Record.type == 'mood',
+                Record.created_at >= start_date,
+                Record.created_at <= end_date
+            ).all()
+            
+            # 获取健康记录
+            health_records = Record.query.filter(
+                Record.user_id == user_id,
+                Record.type == 'health',
+                Record.created_at >= start_date,
+                Record.created_at <= end_date
+            ).all()
+            
+            print(f"记录数量 - 食物: {len(food_records)}, 运动: {len(exercise_records)}, 心情: {len(mood_records)}, 健康: {len(health_records)}")
+            
+            # 计算食物记录数量
+            food_count = len(food_records)
+            
+            # 计算运动总时长（处理空值）
+            exercise_minutes = sum(record.duration or 0 for record in exercise_records)
+            
+            # 分析膳食分布
+            meal_distribution = {}
+            for record in food_records:
+                meal_time = record.meal_time
+                if meal_time:
+                    meal_distribution[meal_time] = meal_distribution.get(meal_time, 0) + 1
+            
+            # 计算百分比
+            total_meals = sum(meal_distribution.values()) if meal_distribution else 1
+            for meal in meal_distribution:
+                meal_distribution[meal] = round((meal_distribution[meal] / total_meals) * 100)
+            
+            # 确保包含所有膳食类型
+            for meal in ['breakfast', 'lunch', 'dinner', 'snack']:
+                if meal not in meal_distribution:
+                    meal_distribution[meal] = 0
+            
+            # 分析食物类别
+            food_categories = {
+                'staple': 0,
+                'protein': 0,
+                'vegetables': 0,
+                'snacks': 0
+            }
+            
+            # 分析食物类别（这里简化处理，实际中可能需要根据食物名称或类型来分类）
+            for record in food_records:
+                category = record.category if hasattr(record, 'category') else None
+                if category:
+                    if category in food_categories:
+                        food_categories[category] += 1
+                    else:
+                        food_categories['staple'] += 1  # 默认归类为主食
+            
+            # 如果没有足够的分类数据，使用默认值
+            if sum(food_categories.values()) < 3:
+                food_categories = {
+                    'staple': 30,
+                    'protein': 25,
+                    'vegetables': 35,
+                    'snacks': 10
+                }
+            else:
+                # 计算百分比
+                total_categories = sum(food_categories.values())
+                for cat in food_categories:
+                    food_categories[cat] = round((food_categories[cat] / total_categories) * 100)
+            
+            # 计算规律度（这里简化处理，根据每日进餐次数的一致性来估算）
+            daily_meals = {}
+            for record in food_records:
+                date = record.created_at.strftime('%Y-%m-%d')
+                if date not in daily_meals:
+                    daily_meals[date] = set()
+                if record.meal_time:
+                    daily_meals[date].add(record.meal_time)
+            
+            # 计算平均每日进餐次数
+            meal_counts = [len(meals) for meals in daily_meals.values()]
+            avg_meals = sum(meal_counts) / len(meal_counts) if meal_counts else 0
+            
+            # 计算规律度：每日进餐次数的稳定性
+            if not meal_counts or avg_meals == 0:
+                regularity_rate = 50  # 默认值
+            else:
+                # 计算标准差
+                variance = sum((x - avg_meals) ** 2 for x in meal_counts) / len(meal_counts)
+                std_dev = variance ** 0.5
+                # 规律度 = 100 - (标准差/平均值) * 100，但最低不小于0
+                regularity_rate = max(0, min(100, 100 - (std_dev / avg_meals) * 50))
+                regularity_rate = round(regularity_rate)
+            
+            # 计算平均心情分数（改进心情值处理）
+            mood_values = {
+                'happy': 5, 
+                'excited': 5,
+                'calm': 4, 
+                'relaxed': 4,
+                'normal': 3, 
+                'neutral': 3,
+                'sad': 2, 
+                'tired': 2,
+                'angry': 1, 
+                'anxious': 1,
+                'stressed': 1
+            }
+            
+            valid_mood_scores = []
+            for record in mood_records:
+                if record.mood_type:
+                    score = mood_values.get(record.mood_type.lower())
+                    if score is not None:
+                        valid_mood_scores.append(score)
+            
+            mood_score = sum(valid_mood_scores) / len(valid_mood_scores) if valid_mood_scores else 3
+            
+            # 获取最常见心情（改进心情统计）
+            mood_counts = {}
+            for record in mood_records:
+                if record.mood_type:
+                    mood_type = record.mood_type.lower()
+                    mood_counts[mood_type] = mood_counts.get(mood_type, 0) + 1
+            
+            top_mood = None
+            if mood_counts:
+                top_mood = max(mood_counts.items(), key=lambda x: x[1])[0]
+            
+            mood_labels = {
+                'happy': '开心',
+                'excited': '兴奋',
+                'calm': '平静',
+                'relaxed': '放松',
+                'normal': '一般',
+                'neutral': '一般',
+                'sad': '难过',
+                'tired': '疲惫',
+                'angry': '生气',
+                'anxious': '焦虑',
+                'stressed': '压力'
+            }
+            
+            top_mood = mood_labels.get(top_mood, '暂无数据') if top_mood else '暂无数据'
+            
+            # 计算心情趋势（改进趋势计算）
+            if len(valid_mood_scores) >= 2:
+                # 计算最近3天和之前的平均分数
+                recent_scores = valid_mood_scores[-3:] if len(valid_mood_scores) > 3 else valid_mood_scores
+                older_scores = valid_mood_scores[:-3] if len(valid_mood_scores) > 3 else []
+                
+                recent_avg = sum(recent_scores) / len(recent_scores)
+                older_avg = sum(older_scores) / len(older_scores) if older_scores else recent_avg
+                
+                if recent_avg > older_avg + 0.5:
+                    mood_trend = '上升'
+                elif recent_avg < older_avg - 0.5:
+                    mood_trend = '下降'
+                else:
+                    mood_trend = '平稳'
+            else:
+                mood_trend = '数据不足'
+            
+            # 计算健康评分（改进健康评分计算）
+            health_values = {
+                'energetic': 5,
+                'good': 4,
+                'normal': 3,
+                'tired': 2,
+                'sick': 1
+            }
+            
+            valid_health_scores = []
+            for record in health_records:
+                if record.feeling:
+                    score = health_values.get(record.feeling.lower())
+                    if score is not None:
+                        valid_health_scores.append(score)
+            
+            health_score = sum(valid_health_scores) / len(valid_health_scores) if valid_health_scores else 3
+            
+            # 生成健康建议（改进建议生成逻辑）
+            health_tips = []
+            
+            if health_score < 3:
+                health_tips.append('注意休息，保持良好的作息')
+            if exercise_minutes < 60:
+                health_tips.append('建议增加运动时间，保持身体活力')
+            if food_count < 5:
+                health_tips.append('注意饮食规律，保持营养均衡')
+            
+            health_tip = health_tips[0] if health_tips else '继续保持良好的生活习惯'
+            
+            result = {
+                'foodCount': food_count,
+                'exerciseMinutes': exercise_minutes,
+                'moodScore': round(mood_score, 2),
+                'healthScore': round(health_score, 2),
+                'topMood': top_mood,
+                'moodTrend': mood_trend,
+                'healthTip': health_tip,
+                'hasData': bool(food_records or exercise_records or mood_records or health_records),
+                'mealDistribution': meal_distribution,
+                'foodCategories': food_categories,
+                'regularityRate': regularity_rate
+            }
+            
+            print(f"健康摘要数据结果: {result}")
+            return result
+            
+        except Exception as e:
+            print(f"获取健康摘要数据时发生错误: {str(e)}")
+            # 返回一个带有错误信息的结果
+            return {
+                'error': True,
+                'message': '获取数据时发生错误，请稍后重试',
+                'details': str(e)
+            }
         
     @staticmethod
     def get_trends(user_id, period='month'):

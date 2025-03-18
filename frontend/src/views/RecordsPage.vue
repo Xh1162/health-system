@@ -1104,6 +1104,8 @@ const saveNewRecord = async () => {
       alert('记录添加成功！')
       // 然后刷新数据
       await fetchRecords(selectedDays.value)
+      // 触发记录更新事件
+      window.dispatchEvent(new Event('recordUpdated'))
       // 最后关闭对话框
       isAddDialogVisible.value = false
       selectedRecordType.value = null
