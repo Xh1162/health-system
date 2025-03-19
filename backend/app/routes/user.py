@@ -54,12 +54,7 @@ def update_user_info(user_id):
                 return bad_request('用户名已被使用')
             user.username = data['username']
         
-        if 'email' in data:
-            # 检查邮箱是否已存在
-            existing_user = User.query.filter(User.email == data['email'], User.id != user_id).first()
-            if existing_user:
-                return bad_request('邮箱已被使用')
-            user.email = data['email']
+        # 注意：系统不再使用邮箱
         
         if 'phone' in data:
             user.phone = data['phone']
@@ -131,12 +126,7 @@ def update_profile():
             return bad_request('用户名已被使用')
         user.username = data['username']
     
-    if 'email' in data:
-        # 检查邮箱是否已存在
-        existing_user = User.query.filter(User.email == data['email'], User.id != user_id).first()
-        if existing_user:
-            return bad_request('邮箱已被使用')
-        user.email = data['email']
+    # 注意：系统不再使用邮箱
     
     if 'phone' in data:
         user.phone = data['phone']

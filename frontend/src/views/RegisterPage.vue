@@ -13,17 +13,6 @@
             required
           />
         </div>
-
-        <div class="form-group">
-          <label for="email">邮箱</label>
-          <input 
-            type="email" 
-            id="email"
-            v-model="email"
-            placeholder="请输入邮箱"
-            required
-          />
-        </div>
         
         <div class="form-group">
           <label for="password">密码</label>
@@ -71,7 +60,6 @@ import { register } from '../api/auth'
 
 const router = useRouter()
 const username = ref('')
-const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const errorMessage = ref('')
@@ -90,19 +78,11 @@ const handleRegister = async () => {
       return
     }
 
-    // 验证邮箱格式
-    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-    if (!emailPattern.test(email.value)) {
-      errorMessage.value = '请输入有效的邮箱地址'
-      return
-    }
-
     loading.value = true
     errorMessage.value = ''
     
     const response = await register({
       username: username.value,
-      email: email.value,
       password: password.value
     })
     

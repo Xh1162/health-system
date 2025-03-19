@@ -27,6 +27,10 @@
               </div>
             </div>
             <div class="dropdown-divider"></div>
+            <router-link to="/profile" class="dropdown-item">
+              <span class="item-icon">👤</span>
+              个人主页
+            </router-link>
             <router-link to="/settings" class="dropdown-item">
               <span class="item-icon">⚙️</span>
               设置

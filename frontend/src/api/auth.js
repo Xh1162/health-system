@@ -37,14 +37,16 @@ export function bindPhone(phone, code) {
   return api.post('/user/phone/bind', { phone, code })
 }
 
-// 发送邮箱验证码
+// 发送邮箱验证码 (不再需要)
 export function sendEmailCode(email) {
-  return api.post('/user/email/code', { email })
+  console.warn('该功能已弃用：系统不再依赖邮箱')
+  return Promise.reject(new Error('该功能已弃用：系统不再依赖邮箱'))
 }
 
-// 绑定邮箱
+// 绑定邮箱 (不再需要)
 export function bindEmail(email, code) {
-  return api.post('/user/email/bind', { email, code })
+  console.warn('该功能已弃用：系统不再依赖邮箱')
+  return Promise.reject(new Error('该功能已弃用：系统不再依赖邮箱'))
 }
 
 // 获取用户信息
@@ -57,9 +59,9 @@ export function changePassword(oldPassword, newPassword) {
   return api.post('/user/password', { oldPassword, newPassword })
 }
 
-// 重置密码
-export function resetPassword(email, code, newPassword) {
-  return api.post('/auth/reset-password', { email, code, newPassword })
+// 重置密码 (修改为使用用户名)
+export function resetPassword(username, code, newPassword) {
+  return api.post('/auth/reset-password', { username, code, newPassword })
 }
 
 export default {

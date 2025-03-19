@@ -31,20 +31,6 @@
           <div class="user-info">
             <h1>{{ username }}</h1>
             <p class="join-date">注册于 {{ formatDate(userCreatedAt) }}</p>
-            <div class="user-stats">
-              <div class="stat-item">
-                <span class="stat-value">{{ recordsCount.food || 0 }}</span>
-                <span class="stat-label">饮食记录</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-value">{{ recordsCount.exercise || 0 }}</span>
-                <span class="stat-label">运动记录</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-value">{{ recordsCount.mood || 0 }}</span>
-                <span class="stat-label">心情记录</span>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -125,6 +111,40 @@
             </div>
           </div>
 
+          <div class="physical-section">
+            <h2>身体信息</h2>
+            <div class="info-grid">
+              <div class="info-item">
+                <span class="info-label">身高</span>
+                <span class="info-value">{{ height ? `${height} cm` : '未设置' }}</span>
+              </div>
+
+              <div class="info-item">
+                <span class="info-label">体重</span>
+                <span class="info-value">{{ weight ? `${weight} kg` : '未设置' }}</span>
+              </div>
+
+              <div class="info-item">
+                <span class="info-label">出生日期</span>
+                <span class="info-value">{{ birthDate ? formatDate(birthDate) : '未设置' }}</span>
+              </div>
+
+              <div class="info-item">
+                <span class="info-label">性别</span>
+                <span class="info-value">
+                  {{ gender ? (gender === 'male' ? '男' : gender === 'female' ? '女' : gender) : '未设置' }}
+                </span>
+              </div>
+
+              <div class="info-item">
+                <span class="info-label">活动水平</span>
+                <span class="info-value">
+                  {{ getActivityLevelText(activityLevel) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
           <div class="security-section">
             <h2>账号安全</h2>
             <div class="security-item">
@@ -185,7 +205,6 @@
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
 import * as authApi from '../api/auth'
-import { getRecordsStats, getAllRecords } from '../api/records'
 import { useRouter } from 'vue-router'
 import useUserStore from '../stores/userStore'
 import { ElMessage } from 'element-plus'
@@ -200,14 +219,12 @@ const emailVerified = ref(false)
 const phoneVerified = ref(false)
 const userCreatedAt = ref(new Date())
 const passwordLastChanged = ref(new Date())
-
-// 记录统计
-const recordsCount = ref({
-  food: 0,
-  exercise: 0,
-  mood: 0,
-  health: 0
-})
+// 添加身体信息
+const height = ref(null)
+const weight = ref(null)
+const birthDate = ref(null)
+const gender = ref('')
+const activityLevel = ref('')
 
 // 编辑状态
 const editMode = ref({
@@ -252,6 +269,20 @@ const formatDate = (date) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// 获取活动水平文本描述
+const getActivityLevelText = (level) => {
+  if (!level) return '未设置'
+  
+  const activityTexts = {
+    'low': '几乎不运动',
+    'medium': '适量运动（每周1-3次）',
+    'high': '经常运动（每周4-5次）',
+    'very_high': '专业运动员（每天运动）'
+  }
+  
+  return activityTexts[level] || level
+}
+
 // 获取用户信息
 const fetchUserInfo = async () => {
   try {
@@ -271,40 +302,29 @@ const fetchUserInfo = async () => {
       editValues.value.username = userData.username
       editValues.value.email = userData.email || ''
       editValues.value.phone = userData.phone || ''
-    }
-  } catch (error) {
-    console.error('获取用户信息失败:', error)
-  }
-}
-
-// 获取记录统计
-const fetchRecordsCount = async () => {
-  try {
-    // 确保用户已登录
-    if (!userStore.state.token) {
-      console.error('用户未登录，无法获取记录统计')
-      return
-    }
-    
-    console.log('获取记录统计，使用Token:', userStore.state.token)
-    
-    const response = await getRecordsStats(30)
-    console.log('记录统计响应:', response)
-    
-    if (response.success && response.data) {
-      recordsCount.value = {
-        food: response.data.food?.count || 0,
-        exercise: response.data.exercise?.count || 0,
-        mood: response.data.mood?.count || 0,
-        health: response.data.health?.count || 0
+      
+      // 获取用户个人资料
+      try {
+        const profileResponse = await axios.get('http://localhost:5007/api/user/profile', {
+          headers: {
+            'Authorization': `Bearer ${userStore.state.token}`
+          }
+        })
+        
+        if (profileResponse.data && profileResponse.data.profile) {
+          const profile = profileResponse.data.profile
+          height.value = profile.height
+          weight.value = profile.weight
+          birthDate.value = profile.birth_date
+          gender.value = profile.gender
+          activityLevel.value = profile.activity_level
+        }
+      } catch (profileError) {
+        console.error('获取用户个人资料失败:', profileError)
       }
     }
   } catch (error) {
-    console.error('获取记录统计失败:', error)
-    if (error.response) {
-      console.error('错误状态:', error.response.status)
-      console.error('错误数据:', error.response.data)
-    }
+    console.error('获取用户信息失败:', error)
   }
 }
 
@@ -469,7 +489,6 @@ const handleAvatarChange = async (event) => {
 // 组件挂载时获取数据
 onMounted(() => {
   fetchUserInfo()
-  fetchRecordsCount()
 })
 </script>
 
@@ -611,29 +630,6 @@ onMounted(() => {
 .join-date {
   color: #64748b;
   font-size: 0.875rem;
-  margin-bottom: 1.5rem;
-}
-
-.user-stats {
-  display: flex;
-  gap: 2rem;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #3b82f6;
-}
-
-.stat-label {
-  font-size: 0.875rem;
-  color: #64748b;
 }
 
 .profile-body {
@@ -883,10 +879,6 @@ h2 {
   .avatar-section {
     margin-right: 0;
     margin-bottom: 1.5rem;
-  }
-  
-  .user-stats {
-    justify-content: center;
   }
   
   .info-grid {

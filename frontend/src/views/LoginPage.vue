@@ -1,18 +1,7 @@
 <template>
   <div class="login-container">
-    <div class="debug-info">
-      <h3>调试信息</h3>
-      <div>
-        <strong>认证状态:</strong> {{ userStore.state.isAuthenticated ? '已登录' : '未登录' }}
-      </div>
-      <div>
-        <strong>用户数据:</strong> {{ userStore.state.userData ? '已加载' : '未加载' }}
-      </div>
-      <pre v-if="userStore.state.userData">{{ JSON.stringify(userStore.state.userData, null, 2) }}</pre>
-    </div>
-    
     <div class="login-form">
-      <h2>健康生活系统登录</h2>
+      <h2>用户登录</h2>
       <div v-if="error" class="error-message">{{ error }}</div>
       
       <div class="form-group">
@@ -67,10 +56,6 @@ const password = ref('')
 const error = ref('')
 const isLoading = ref(false)
 
-// 仅用于测试：自动填入测试凭据
-username.value = 'testuser'
-password.value = 'password123'
-
 const login = async () => {
   try {
     error.value = ''
@@ -82,8 +67,6 @@ const login = async () => {
     
     isLoading.value = true
     
-    console.log('登录请求:', { username: username.value, password: password.value })
-    
     // 调用登录API
     const apiBaseUrl = 'http://localhost:5007'
     const response = await axios.post(`${apiBaseUrl}/api/auth/login`, {
@@ -91,13 +74,9 @@ const login = async () => {
       password: password.value
     })
     
-    console.log('登录响应:', response.data)
-    
     if (response.data.success) {
       // 登录成功，更新用户状态
       userStore.login(response.data.data)
-      
-      console.log('登录后用户状态:', userStore.state)
       
       // 检查是否有重定向路径
       const redirectPath = route.query.redirect || '/dashboard'
@@ -106,7 +85,6 @@ const login = async () => {
       error.value = response.data.message || '登录失败'
     }
   } catch (err) {
-    console.error('登录错误:', err)
     if (err.response) {
       error.value = err.response.data?.message || '登录失败，请检查您的用户名和密码'
     } else if (err.request) {
@@ -118,158 +96,94 @@ const login = async () => {
     isLoading.value = false
   }
 }
-
-// 调试函数：模拟登录
-const simulateLogin = () => {
-  const mockData = {
-    success: true,
-    data: {
-      token: 'mock-token-123',
-      user: {
-        id: '1',
-        username: 'testuser',
-        email: 'test@example.com',
-        avatar: '/uploads/avatars/default.png'
-      }
-    }
-  }
-  
-  try {
-    userStore.login(mockData.data)
-    console.log('模拟登录成功!')
-    router.push('/dashboard')
-  } catch (err) {
-    console.error('模拟登录失败:', err)
-    error.value = '模拟登录失败: ' + err.message
-  }
-}
 </script>
 
 <style scoped>
 .login-container {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: white;
   padding: 20px;
 }
 
 .login-form {
   width: 100%;
-  max-width: 400px;
+  max-width: 360px;
   background: white;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
   padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 h2 {
   text-align: center;
-  margin-bottom: 24px;
-  color: #334155;
-  font-weight: 600;
+  margin: 0 0 24px 0;
+  color: #333;
+  font-weight: 500;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
 }
 
 label {
   display: block;
   margin-bottom: 6px;
-  font-weight: 500;
-  color: #475569;
+  font-weight: 400;
+  color: #333;
 }
 
 input {
   width: 100%;
-  padding: 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 16px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
 input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  outline: none;
+  border-color: #666;
 }
 
 .login-button {
   width: 100%;
-  padding: 12px;
+  padding: 10px;
   background: #3b82f6;
   color: white;
   border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: 500;
+  border-radius: 4px;
+  font-size: 14px;
   cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.login-button:hover:not(:disabled) {
-  background: #2563eb;
+  margin-top: 10px;
 }
 
 .login-button:disabled {
-  background: #93c5fd;
+  background: #ccc;
   cursor: not-allowed;
 }
 
 .register-link {
-  margin-top: 16px;
+  margin-top: 15px;
   text-align: center;
   font-size: 14px;
-  color: #475569;
+  color: #666;
 }
 
 .register-link a {
   color: #3b82f6;
   text-decoration: none;
-  font-weight: 500;
-}
-
-.register-link a:hover {
-  text-decoration: underline;
 }
 
 .error-message {
-  padding: 12px;
-  background: #fee2e2;
-  border-radius: 6px;
-  color: #b91c1c;
-  margin-bottom: 20px;
-  font-size: 14px;
-}
-
-.debug-info {
-  margin-bottom: 30px;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 15px;
-  border-radius: 8px;
-  max-width: 400px;
-  width: 100%;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  overflow: auto;
-}
-
-.debug-info h3 {
-  margin-top: 0;
-  color: #334155;
-}
-
-.debug-info pre {
-  margin: 10px 0 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  background: #f1f5f9;
   padding: 10px;
+  background: #fee2e2;
   border-radius: 4px;
-  font-size: 12px;
-  max-height: 200px;
-  overflow: auto;
+  color: #b91c1c;
+  margin-bottom: 15px;
+  font-size: 14px;
 }
 </style> 

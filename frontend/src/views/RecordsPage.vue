@@ -827,6 +827,18 @@ const editRecord = (record, type) => {
     editingRecord.value.record_date = formatDateForInput(new Date())
   }
   
+  // 确保健康记录的status字段始终是数组
+  if (type === 'health') {
+    // 如果status是字符串类型（来自API响应），将其转换为数组
+    if (typeof editingRecord.value.status === 'string') {
+      editingRecord.value.status = [editingRecord.value.status];
+    } 
+    // 如果status不存在或不是数组，初始化为空数组
+    else if (!editingRecord.value.status || !Array.isArray(editingRecord.value.status)) {
+      editingRecord.value.status = [];
+    }
+  }
+  
   editingType.value = type
   isEditDialogVisible.value = true
 }
@@ -837,6 +849,16 @@ const saveEdit = async () => {
     const recordToSave = { ...editingRecord.value }
     if (recordToSave.record_date) {
       recordToSave.record_date = recordToSave.record_date.split('T')[0]
+    }
+    
+    // 确保健康记录的status字段是正确格式
+    if (editingType.value === 'health' && Array.isArray(recordToSave.status)) {
+      // 后端可能期望接收以字符串形式的status，取决于API设计
+      // 如果后端期望接收字符串，则将数组转为逗号分隔的字符串
+      // recordToSave.status = recordToSave.status.join(',')
+      
+      // 或者确保它是干净的数组（移除任何空值）
+      recordToSave.status = recordToSave.status.filter(Boolean)
     }
     
     const updateFunctions = {
@@ -856,6 +878,9 @@ const saveEdit = async () => {
       alert('记录已更新')
       isEditDialogVisible.value = false
       fetchRecords(selectedDays.value)
+      
+      // 触发记录更新事件，以便报告页面刷新数据
+      window.dispatchEvent(new CustomEvent('recordUpdated'))
     }
   } catch (error) {
     console.error('更新记录失败:', error)
@@ -896,14 +921,24 @@ const getRecordTypeLabel = (type) => {
 
 // 切换身体状态
 const toggleStatus = (type) => {
+  // 确保status字段为数组
   if (!editingRecord.value.status) {
-    editingRecord.value.status = []
+    editingRecord.value.status = [];
+  } else if (typeof editingRecord.value.status === 'string') {
+    // 如果是字符串（可能是逗号分隔的多个状态），转换为数组
+    editingRecord.value.status = editingRecord.value.status.split(',').map(s => s.trim());
+  } else if (!Array.isArray(editingRecord.value.status)) {
+    // 如果不是数组也不是字符串，初始化为空数组
+    console.warn('Status字段格式不正确，重置为空数组');
+    editingRecord.value.status = [];
   }
-  const index = editingRecord.value.status.indexOf(type)
+  
+  // 现在可以安全地对数组进行操作
+  const index = editingRecord.value.status.indexOf(type);
   if (index === -1) {
-    editingRecord.value.status.push(type)
+    editingRecord.value.status.push(type);
   } else {
-    editingRecord.value.status.splice(index, 1)
+    editingRecord.value.status.splice(index, 1);
   }
 }
 

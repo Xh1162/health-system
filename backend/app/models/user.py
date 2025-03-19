@@ -7,7 +7,7 @@ class User(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False, index=True)
-    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=True, index=True)
     password_hash = db.Column(db.String(128), nullable=False)
     phone = db.Column(db.String(20))
     avatar = db.Column(db.String(256), default='/default-avatar.png')
