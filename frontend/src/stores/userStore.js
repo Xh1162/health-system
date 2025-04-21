@@ -58,6 +58,12 @@ const init = () => {
       const parsedUserData = JSON.parse(userData)
       console.log('解析的用户数据:', parsedUserData)
       
+      // Remove email from parsed data if it exists for backward compatibility
+      if ('email' in parsedUserData) {
+        delete parsedUserData.email;
+        console.log('已移除旧的email字段');
+      }
+      
       // 更新头像URL的端口号
       if (parsedUserData.avatar && parsedUserData.avatar.includes('localhost:5000')) {
         parsedUserData.avatar = parsedUserData.avatar.replace('localhost:5000', 'localhost:5008')
@@ -134,7 +140,6 @@ const useUserStore = () => {
     const userData = {
       id: state.userData.id,
       username: state.userData.username,
-      email: state.userData.email,
       avatar: state.userData.avatar,
       role: state.userData.role
     }
@@ -152,22 +157,24 @@ const useUserStore = () => {
 
     state.isAuthenticated = true
     state.token = data.token
-    state.userData = data.user
+    // Ensure email is not set on state.userData from login response
+    const { email, ...userWithoutEmail } = data.user;
+    state.userData = userWithoutEmail
     
     console.log('登录后的用户状态:', { ...state })
     
-    // 持久化到localStorage
-    const userData = {
-      id: data.user.id,
-      username: data.user.username,
-      email: data.user.email,
-      avatar: ensureFullUrl(data.user.avatar),
-      role: data.user.role
+    // 持久化到localStorage (already handled by updateLocalStorage if called, 
+    // but we do it explicitly here after login)
+    const userDataToStore = {
+      id: state.userData.id,
+      username: state.userData.username,
+      avatar: ensureFullUrl(state.userData.avatar), // Use state.userData.avatar
+      role: state.userData.role
     }
     
-    console.log('保存到localStorage的用户数据:', userData)
+    console.log('保存到localStorage的用户数据:', userDataToStore)
     localStorage.setItem('token', data.token)
-    localStorage.setItem('userData', JSON.stringify(userData))
+    localStorage.setItem('userData', JSON.stringify(userDataToStore))
   }
 
   const logout = () => {

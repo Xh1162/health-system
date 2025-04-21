@@ -30,10 +30,6 @@
               <span class="item-icon">👤</span>
               个人主页
             </router-link>
-            <router-link to="/settings" class="dropdown-item">
-              <span class="item-icon">⚙️</span>
-              设置
-            </router-link>
             <div class="dropdown-divider"></div>
             <button class="dropdown-item" @click="handleLogout">
               <span class="item-icon">🚪</span>
@@ -1279,7 +1275,14 @@ onUnmounted(() => {
 .user-info {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 100px;
+  transition: all 0.3s ease;
+}
+
+.user-info:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .avatar {
@@ -1290,13 +1293,15 @@ onUnmounted(() => {
 }
 
 .username {
+  font-size: 0.9rem;
   font-weight: 500;
   color: #1e293b;
 }
 
 .dropdown-arrow {
-  font-size: 0.75rem;
-  font-weight: bold;
+  font-size: 0.7rem;
+  font-weight: normal;
+  color: #64748b;
   transition: transform 0.3s ease;
 }
 
@@ -1306,58 +1311,80 @@ onUnmounted(() => {
 
 .user-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 8px);
   right: 0;
-  margin-top: 0.5rem;
+  width: 220px;
   background: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  min-width: 160px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
   z-index: 1000;
+  animation: dropdownFadeIn 0.3s ease-out forwards;
+  transform-origin: top right;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .dropdown-header {
-  padding: 1rem;
+  padding: 12px 16px;
   background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: none;
 }
 
 .header-info {
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .signed-in {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: #64748b;
+}
+
+.header-info strong {
+  font-weight: 500;
+  color: #1e293b;
 }
 
 .dropdown-divider {
   height: 1px;
   background: #e2e8f0;
-  margin: 1rem 0;
+  margin: 4px 0;
 }
 
 .dropdown-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 12px 16px;
   text-align: left;
   color: #1e293b;
   text-decoration: none;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 1rem;
   transition: all 0.2s ease;
 }
 
 .dropdown-item:hover {
-  background: #f8fafc;
+  background: #f1f5f9;
 }
 
 .item-icon {
-  margin-right: 0.5rem;
+  font-size: 1.1rem;
+  margin-right: 0;
 }
 
 .main-content {

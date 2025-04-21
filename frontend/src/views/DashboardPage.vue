@@ -408,7 +408,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import useUserStore from '../stores/userStore';
 import UserAvatar from '../components/user/UserAvatar.vue';

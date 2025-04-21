@@ -54,9 +54,10 @@ export function getUserInfo() {
   return api.get('/user/info')
 }
 
-// 修改密码
-export function changePassword(oldPassword, newPassword) {
-  return api.post('/user/password', { oldPassword, newPassword })
+// 修改密码 (修正以匹配后端)
+export function changePassword(passwordData) {
+  // passwordData should be an object like { current_password: '...', new_password: '...' }
+  return api.put('/auth/password/change', passwordData)
 }
 
 // 重置密码 (修改为使用用户名)

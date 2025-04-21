@@ -30,10 +30,6 @@
               <span class="item-icon">👤</span>
               个人主页
             </router-link>
-            <router-link to="/settings" class="dropdown-item">
-              <span class="item-icon">⚙️</span>
-              设置
-            </router-link>
             <div class="dropdown-divider"></div>
             <button class="dropdown-item" @click="handleLogout">
               <span class="item-icon">🚪</span>
@@ -467,16 +463,21 @@ onBeforeUnmount(() => {
 .user-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 100px;
+  transition: all 0.3s ease;
+}
+
+.user-info:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .avatar {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   overflow: hidden;
-  border: 2px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .avatar img {
@@ -486,12 +487,14 @@ onBeforeUnmount(() => {
 }
 
 .username {
+  font-size: 0.9rem;
   font-weight: 500;
   color: #1e293b;
 }
 
 .dropdown-arrow {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: normal;
   color: #64748b;
   transition: transform 0.3s ease;
 }
@@ -502,67 +505,81 @@ onBeforeUnmount(() => {
 
 .user-dropdown {
   position: absolute;
-  top: calc(100% + 0.75rem);
+  top: calc(100% + 8px);
   right: 0;
-  width: 240px;
+  margin-top: 0;
+  width: 220px;
   background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  z-index: 10;
-  animation: dropdownFadeIn 0.2s ease-out;
+  z-index: 1000;
+  animation: dropdownFadeIn 0.3s ease-out forwards;
+  transform-origin: top right;
 }
 
 @keyframes dropdownFadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .dropdown-header {
-  padding: 1rem;
+  padding: 12px 16px;
   background: #f8fafc;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: none;
 }
 
 .header-info {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 2px;
+}
+
+.header-info strong {
+  font-weight: 500;
+  color: #1e293b;
 }
 
 .signed-in {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #64748b;
 }
 
 .dropdown-divider {
   height: 1px;
-  background: #f1f5f9;
-  margin: 0.5rem 0;
+  background: #e2e8f0;
+  margin: 4px 0;
 }
 
 .dropdown-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  text-align: left;
   color: #1e293b;
   text-decoration: none;
-  transition: background 0.2s ease;
-  cursor: pointer;
-  border: none;
   background: none;
-  width: 100%;
-  text-align: left;
+  border: none;
+  cursor: pointer;
   font-size: 1rem;
+  transition: all 0.2s ease;
 }
 
 .dropdown-item:hover {
-  background: #f8fafc;
+  background: #f1f5f9;
 }
 
 .item-icon {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
+  margin-right: 0;
 }
 
 /* 主要内容区域 */

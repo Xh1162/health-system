@@ -4,7 +4,6 @@ from flask import current_app
 from flask_jwt_extended import create_access_token, decode_token
 from ..models import db, User
 from ..utils.errors import ValidationError, AuthenticationError
-from ..utils.helpers import validate_email, validate_phone, validate_password
 
 class AuthService:
     @staticmethod

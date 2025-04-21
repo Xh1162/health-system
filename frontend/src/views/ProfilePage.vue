@@ -60,31 +60,6 @@
               </div>
 
               <div class="info-item">
-                <span class="info-label">邮箱</span>
-                <div class="info-value-container">
-                  <span v-if="!editMode.email" class="info-value">
-                    {{ email || '未设置' }}
-                    <span v-if="email && emailVerified" class="verified-badge">已验证</span>
-                    <span v-else-if="email && !emailVerified" class="unverified-badge">未验证</span>
-                  </span>
-                  <div v-else class="edit-container">
-                    <input v-model="editValues.email" class="edit-input" type="email" />
-                  </div>
-                  <button 
-                    v-if="!editMode.email" 
-                    @click="startEdit('email')" 
-                    class="edit-btn"
-                  >
-                    {{ email ? '更换' : '添加' }}
-                  </button>
-                  <div v-else class="action-btns">
-                    <button @click="saveEdit('email')" class="save-btn">保存</button>
-                    <button @click="cancelEdit('email')" class="cancel-btn">取消</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="info-item">
                 <span class="info-label">手机</span>
                 <div class="info-value-container">
                   <span v-if="!editMode.phone" class="info-value">
@@ -113,34 +88,70 @@
 
           <div class="physical-section">
             <h2>身体信息</h2>
-            <div class="info-grid">
+            <div v-if="!editMode.physical" class="info-grid">
               <div class="info-item">
                 <span class="info-label">身高</span>
                 <span class="info-value">{{ height ? `${height} cm` : '未设置' }}</span>
               </div>
-
               <div class="info-item">
                 <span class="info-label">体重</span>
                 <span class="info-value">{{ weight ? `${weight} kg` : '未设置' }}</span>
               </div>
-
               <div class="info-item">
                 <span class="info-label">出生日期</span>
                 <span class="info-value">{{ birthDate ? formatDate(birthDate) : '未设置' }}</span>
               </div>
-
               <div class="info-item">
                 <span class="info-label">性别</span>
                 <span class="info-value">
-                  {{ gender ? (gender === 'male' ? '男' : gender === 'female' ? '女' : gender) : '未设置' }}
+                  {{ gender ? getGenderText(gender) : '未设置' }}
                 </span>
               </div>
-
               <div class="info-item">
                 <span class="info-label">活动水平</span>
                 <span class="info-value">
                   {{ getActivityLevelText(activityLevel) }}
                 </span>
+              </div>
+              <div class="info-item edit-action-item">
+                <button @click="startEdit('physical')" class="edit-btn full-width-btn">编辑身体信息</button>
+              </div>
+            </div>
+            <div v-else class="edit-form">
+              <div class="form-group">
+                <label for="edit-height">身高 (cm)</label>
+                <input id="edit-height" type="number" v-model.number="editValues.height" class="edit-input" placeholder="例如 175" />
+              </div>
+              <div class="form-group">
+                <label for="edit-weight">体重 (kg)</label>
+                <input id="edit-weight" type="number" step="0.1" v-model.number="editValues.weight" class="edit-input" placeholder="例如 68.5" />
+              </div>
+              <div class="form-group">
+                <label for="edit-birthDate">出生日期</label>
+                <input id="edit-birthDate" type="date" v-model="editValues.birthDate" class="edit-input" />
+              </div>
+              <div class="form-group">
+                <label for="edit-gender">性别</label>
+                <select id="edit-gender" v-model="editValues.gender" class="edit-input">
+                  <option value="">请选择</option>
+                  <option value="male">男</option>
+                  <option value="female">女</option>
+                  <option value="other">其他</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-activityLevel">活动水平</label>
+                <select id="edit-activityLevel" v-model="editValues.activityLevel" class="edit-input">
+                  <option value="">请选择</option>
+                  <option value="low">几乎不运动</option>
+                  <option value="medium">适量运动（每周1-3次）</option>
+                  <option value="high">经常运动（每周4-5次）</option>
+                  <option value="very_high">专业运动员（每天运动）</option>
+                </select>
+              </div>
+              <div class="action-btns physical-action-btns">
+                <button @click="saveEdit('physical')" class="save-btn">保存</button>
+                <button @click="cancelEdit('physical')" class="cancel-btn">取消</button>
               </div>
             </div>
           </div>
@@ -192,9 +203,13 @@
             />
           </div>
         </div>
+        <!-- Add error display element here -->
+        <div v-if="passwordError" class="modal-error-message">
+          {{ passwordError }}
+        </div>
         <div class="modal-footer">
           <button @click="showPasswordModal = false" class="cancel-btn">取消</button>
-          <button @click="changePassword" class="save-btn">保存</button>
+          <button @click="changePasswordHandler" class="save-btn">保存</button>
         </div>
       </div>
     </div>
@@ -204,22 +219,20 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import axios from 'axios'
-import * as authApi from '../api/auth'
+import { getUserProfile, updateUserProfile, uploadAvatar as userUploadAvatar } from '../api/user'
+import { changePassword } from '../api/auth'
 import { useRouter } from 'vue-router'
 import useUserStore from '../stores/userStore'
 import { ElMessage } from 'element-plus'
-import { uploadAvatar } from '../api/user'
 
 const userStore = useUserStore()
 // 用户基本信息
 const username = ref(userStore.state.username || '')
-const email = ref('')
 const phone = ref('')
-const emailVerified = ref(false)
 const phoneVerified = ref(false)
 const userCreatedAt = ref(new Date())
 const passwordLastChanged = ref(new Date())
-// 添加身体信息
+// 身体信息
 const height = ref(null)
 const weight = ref(null)
 const birthDate = ref(null)
@@ -229,15 +242,19 @@ const activityLevel = ref('')
 // 编辑状态
 const editMode = ref({
   username: false,
-  email: false,
-  phone: false
+  phone: false,
+  physical: false
 })
 
-// 编辑值
+// 编辑值 - Initialize with correct types
 const editValues = ref({
   username: '',
-  email: '',
-  phone: ''
+  phone: '',
+  height: null,
+  weight: null,
+  birthDate: null,
+  gender: '',
+  activityLevel: ''
 })
 
 // 密码修改
@@ -247,6 +264,7 @@ const passwordForm = ref({
   newPassword: '',
   confirmPassword: ''
 })
+const passwordError = ref(''); // Add ref for password error message
 
 // 头像上传
 const avatarInput = ref(null)
@@ -283,154 +301,155 @@ const getActivityLevelText = (level) => {
   return activityTexts[level] || level
 }
 
-// 获取用户信息
-const fetchUserInfo = async () => {
+// 添加 getGenderText 函数
+const getGenderText = (value) => {
+  if (value === 'male') return '男'
+  if (value === 'female') return '女'
+  if (value === 'other') return '其他'
+  return '未设置'
+}
+
+// 获取用户信息和资料
+const fetchProfileData = async () => {
   try {
-    const response = await authApi.getUserInfo()
+    const data = await getUserProfile() // Use the new API function
     
-    if (response.data) {
-      const userData = response.data
-      username.value = userData.username
-      email.value = userData.email
-      phone.value = userData.phone
-      emailVerified.value = userData.email_verified
-      phoneVerified.value = userData.phone_verified
-      userCreatedAt.value = userData.created_at
-      passwordLastChanged.value = userData.password_last_changed || userData.created_at
-      
-      // 更新编辑值
-      editValues.value.username = userData.username
-      editValues.value.email = userData.email || ''
-      editValues.value.phone = userData.phone || ''
-      
-      // 获取用户个人资料
-      try {
-        const profileResponse = await axios.get('http://localhost:5008/api/user/profile', {
-          headers: {
-            'Authorization': `Bearer ${userStore.state.token}`
-          }
-        })
-        
-        if (profileResponse.data && profileResponse.data.profile) {
-          const profile = profileResponse.data.profile
-          height.value = profile.height
-          weight.value = profile.weight
-          birthDate.value = profile.birth_date
-          gender.value = profile.gender
-          activityLevel.value = profile.activity_level
-        }
-      } catch (profileError) {
-        console.error('获取用户个人资料失败:', profileError)
-      }
+    username.value = data.username || ''
+    phone.value = data.phone || ''
+    // phoneVerified logic might need backend support
+    userCreatedAt.value = data.created_at ? new Date(data.created_at) : new Date()
+    // passwordLastChanged needs a dedicated field from backend
+    passwordLastChanged.value = data.password_last_changed || data.updated_at ? new Date(data.updated_at) : new Date()
+    
+    if (data.profile) {
+      height.value = data.profile.height
+      weight.value = data.profile.weight
+      birthDate.value = data.profile.birth_date // Keep as YYYY-MM-DD string
+      gender.value = data.profile.gender
+      activityLevel.value = data.profile.activity_level
     }
+    
+    resetEditValues() // Initialize editValues after fetching
+    
   } catch (error) {
-    console.error('获取用户信息失败:', error)
+    console.error("获取用户资料失败:", error)
+    ElMessage.error(error.response?.data?.message || '获取用户资料失败')
   }
+}
+
+// 重置编辑值
+const resetEditValues = () => {
+  editValues.value.username = username.value
+  editValues.value.phone = phone.value
+  editValues.value.height = height.value
+  editValues.value.weight = weight.value
+  editValues.value.birthDate = birthDate.value // Keep as string
+  editValues.value.gender = gender.value
+  editValues.value.activityLevel = activityLevel.value
 }
 
 // 开始编辑
 const startEdit = (field) => {
-  editMode.value[field] = true
+  resetEditValues() // Reset all fields first
+  Object.keys(editMode.value).forEach(key => {
+    editMode.value[key] = (key === field) // Set only the target field to true
+  })
 }
 
 // 取消编辑
 const cancelEdit = (field) => {
   editMode.value[field] = false
-  
-  // 重置编辑值
-  if (field === 'username') {
-    editValues.value.username = username.value
-  } else if (field === 'email') {
-    editValues.value.email = email.value || ''
-  } else if (field === 'phone') {
-    editValues.value.phone = phone.value || ''
-  }
+  resetEditValues() // Reset values on cancel
 }
 
 // 保存编辑
 const saveEdit = async (field) => {
   try {
-    if (field === 'username') {
-      // 验证用户名
-      if (!editValues.value.username.trim()) {
-        alert('用户名不能为空')
-        return
+    let updateData = {}
+    
+    if (field === 'username' || field === 'phone') {
+      // Basic info update
+      if (field === 'username' && !editValues.value.username.trim()) {
+        ElMessage.error('用户名不能为空'); return;
       }
+      // Phone validation could be added here if needed
+      updateData[field] = editValues.value[field]
+    } else if (field === 'physical') {
+      // Physical info update - construct the nested 'profile' object
+      // Basic validation
+      if (editValues.value.height === null || editValues.value.height === '') { ElMessage.error('请输入身高'); return; }
+      if (editValues.value.weight === null || editValues.value.weight === '') { ElMessage.error('请输入体重'); return; }
+      if (!editValues.value.birthDate) { ElMessage.error('请选择出生日期'); return; }
+      if (!editValues.value.gender) { ElMessage.error('请选择性别'); return; }
+      if (!editValues.value.activityLevel) { ElMessage.error('请选择活动水平'); return; }
       
-      await authApi.updateUserInfo(userStore.state.userId, {
-        username: editValues.value.username
-      })
-      
-      username.value = editValues.value.username
-      userStore.updateUsername(editValues.value.username)
-    } else if (field === 'email') {
-      // 验证邮箱
-      if (!editValues.value.email.trim()) {
-        alert('邮箱不能为空')
-        return
+      updateData.profile = {
+        height: parseFloat(editValues.value.height) || null,
+        weight: parseFloat(editValues.value.weight) || null,
+        birth_date: editValues.value.birthDate, // Send as YYYY-MM-DD string
+        gender: editValues.value.gender,
+        activity_level: editValues.value.activityLevel
       }
-      
-      // 这里应该有发送验证码的逻辑
-      alert('邮箱更新功能需要后端支持，暂未实现')
-      return
-    } else if (field === 'phone') {
-      // 验证手机号
-      if (!editValues.value.phone.trim()) {
-        alert('手机号不能为空')
-        return
-      }
-      
-      // 这里应该有发送验证码的逻辑
-      alert('手机号更新功能需要后端支持，暂未实现')
-      return
     }
     
+    console.log('更新数据:', updateData)
+    
+    // Call the unified update API
+    const updatedProfile = await updateUserProfile(updateData)
+    
+    // Update local state from the response
+    username.value = updatedProfile.username
+    phone.value = updatedProfile.phone
+    if (updatedProfile.profile) {
+      height.value = updatedProfile.profile.height
+      weight.value = updatedProfile.profile.weight
+      birthDate.value = updatedProfile.profile.birth_date
+      gender.value = updatedProfile.profile.gender
+      activityLevel.value = updatedProfile.profile.activity_level
+    }
+    
+    // Update store if username changed
+    if (field === 'username') {
+      userStore.updateUsername(updatedProfile.username)
+    }
+
     editMode.value[field] = false
+    ElMessage.success('信息更新成功')
+
   } catch (error) {
-    console.error(`保存${field}失败:`, error)
-    alert(error.response?.data?.message || `保存${field}失败`)
+    console.error("更新失败:", error)
+    ElMessage.error(error.response?.data?.message || '更新失败，请重试')
+    cancelEdit(field) // Revert changes on error
   }
 }
 
 // 修改密码
-const changePassword = async () => {
+const changePasswordHandler = async () => {
+  passwordError.value = ''; // Clear previous error on new attempt
   try {
-    // 验证密码
-    if (!passwordForm.value.currentPassword) {
-      alert('请输入当前密码')
-      return
-    }
-    
-    if (!passwordForm.value.newPassword) {
-      alert('请输入新密码')
-      return
-    }
-    
+    if (!passwordForm.value.currentPassword) { passwordError.value = '请输入当前密码'; return; }
+    if (!passwordForm.value.newPassword) { passwordError.value = '请输入新密码'; return; }
+    if (passwordForm.value.newPassword.length < 8) { passwordError.value = '新密码至少需要8位'; return; }
     if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
-      alert('两次输入的新密码不一致')
-      return
+      passwordError.value = '两次输入的新密码不一致';
+      return;
     }
     
-    await authApi.changePassword(
-      passwordForm.value.currentPassword,
-      passwordForm.value.newPassword
-    )
+    await changePassword({
+        current_password: passwordForm.value.currentPassword,
+        new_password: passwordForm.value.newPassword
+    }) // Use the imported auth API function
     
-    alert('密码修改成功')
+    ElMessage.success('密码修改成功')
     showPasswordModal.value = false
-    
-    // 清空表单
-    passwordForm.value = {
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    }
-    
-    // 更新密码修改时间
-    passwordLastChanged.value = new Date()
+    passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
+    passwordLastChanged.value = new Date() // Update timestamp locally
   } catch (error) {
     console.error('修改密码失败:', error)
-    alert(error.response?.data?.message || '修改密码失败')
+    // Set the local error message to be displayed in the modal
+    passwordError.value = error.response?.data?.message || '修改密码失败，请重试';
+    // Optionally keep ElMessage for a toast notification as well
+    // ElMessage.error(passwordError.value);
   }
 }
 
@@ -439,86 +458,43 @@ const openAvatarUpload = () => {
   avatarInput.value.click()
 }
 
-// 处理头像变更
+// 处理头像变更 - Use imported userUploadAvatar
 const handleAvatarChange = async (event) => {
   const file = event.target.files[0]
   if (!file) return
+  if (!file.type.startsWith('image/')) { ElMessage.error('请上传图片文件'); return; }
+  if (file.size > 2 * 1024 * 1024) { ElMessage.error('图片大小不能超过2MB'); return; }
   
-  // 验证文件类型
-  if (!file.type.startsWith('image/')) {
-    alert('请上传图片文件')
-    return
-  }
-  
-  // 验证文件大小
-  if (file.size > 2 * 1024 * 1024) {
-    alert('图片大小不能超过2MB')
-    return
-  }
+  loading.value = true
+  ElMessage.info('头像上传中...')
   
   try {
-    // 显示上传中提示
-    alert('头像上传中，请稍候...')
-    
-    // 构建FormData对象
     const formData = new FormData()
     formData.append('avatar', file)
     
-    // 构建请求URL
-    const apiBaseUrl = 'http://localhost:5008'
-    const apiUrl = `${apiBaseUrl}/api/auth/avatar/${userStore.state.userData.id}`
+    const data = await userUploadAvatar(formData) // Use the API function
     
-    // 发送请求
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Authorization': `Bearer ${userStore.state.token}`
-      }
-    })
-    
-    // 解析响应
-    const result = await response.json()
-    console.log('上传响应数据:', result)
-    
-    if (result.success) {
-      // 确保返回的数据包含avatar字段
-      const avatarUrl = result.data?.avatar
-      
-      if (avatarUrl) {
-        console.log('头像上传成功，URL:', avatarUrl)
-        
-        // 确保URL是完整路径
-        const fullAvatarUrl = avatarUrl.startsWith('http') 
-          ? avatarUrl 
-          : avatarUrl.startsWith('/') 
-            ? `${apiBaseUrl}${avatarUrl}` 
-            : `${apiBaseUrl}/${avatarUrl}`
-        
-        // 更新状态
-        userStore.updateAvatar(fullAvatarUrl)
-        alert('头像更新成功')
-        
-        // 强制刷新头像
-        const avatarImg = document.querySelector('.avatar')
-        if (avatarImg) {
-          avatarImg.src = fullAvatarUrl + '?t=' + new Date().getTime()
-        }
-      } else {
-        throw new Error('服务器返回的数据缺少avatar字段')
-      }
+    if (data.avatar) {
+        userStore.updateAvatar(data.avatar) // updateAvatar ensures full URL
+        ElMessage.success('头像更新成功')
     } else {
-      throw new Error(result.message || '头像上传失败')
+        throw new Error('服务器未返回头像地址')
     }
   } catch (error) {
     console.error('上传头像失败:', error)
-    alert('头像上传失败: ' + (error.message || '未知错误'))
+    ElMessage.error(error.response?.data?.message || '头像上传失败')
+  } finally {
+      loading.value = false
+      // Reset file input to allow uploading the same file again if needed
+      if (avatarInput.value) {
+          avatarInput.value.value = ''
+      }
   }
 }
 
 // 组件挂载时获取数据
 onMounted(() => {
-  fetchUserInfo()
+  fetchProfileData()
 })
 </script>
 
@@ -914,5 +890,81 @@ h2 {
   .info-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.physical-section .info-grid {
+  /* Adjust grid for physical info if needed, maybe fewer columns */
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); 
+}
+
+.edit-action-item {
+  grid-column: 1 / -1; /* Make edit button span full width */
+  margin-top: 1rem;
+}
+
+.full-width-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.physical-action-btns {
+  margin-top: 1rem;
+  justify-content: flex-end; /* Align buttons to the right */
+}
+
+/* Comment out the problematic style for the date picker indicator */
+/*
+.edit-input[type="date"]::-webkit-calendar-picker-indicator {
+    background: transparent;
+    bottom: 0;
+    color: transparent;
+    cursor: pointer;
+    height: auto;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: auto;
+}
+*/
+
+select.edit-input {
+  /* Style select elements similarly to inputs */
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  background-color: white; 
+  width: 100%;
+}
+
+/* Add styles for the modal error message */
+.modal-error-message {
+  color: #ef4444; /* Red color for errors */
+  background-color: #fee2e2; /* Light red background */
+  border: 1px solid #fca5a5; /* Red border */
+  border-radius: 0.375rem; /* Rounded corners */
+  padding: 0.75rem; /* Padding */
+  margin-top: 1rem; /* Space above the footer */
+  margin-bottom: -0.5rem; /* Adjust spacing if needed before footer */
+  font-size: 0.875rem; /* Font size */
+  text-align: center;
 }
 </style> 
