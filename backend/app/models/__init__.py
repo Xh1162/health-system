@@ -11,8 +11,9 @@ __all__ = ['db']
 from .user import User, UserProfile
 from .record import Record, HealthStatus
 # from .records import FoodRecord, ExerciseRecord, MoodRecord, HealthRecord # 删除此行
-from .report import Report, Recommendation
+from .report import Report, ReportRequest, Recommendation
 from .admin import SystemSetting, Announcement, ActivityLog
+from .food import FoodItem
 
 # 导出所有模型
 __all__ = [
@@ -26,8 +27,10 @@ __all__ = [
     # 'MoodRecord', # 删除
     # 'HealthRecord', # 删除
     'Report',
+    'ReportRequest',
     'Recommendation',
     'SystemSetting',
     'Announcement',
-    'ActivityLog'
+    'ActivityLog',
+    'FoodItem'
 ] 

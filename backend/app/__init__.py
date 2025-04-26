@@ -99,6 +99,7 @@ def create_app(test_config=None):
     from .routes.reports import reports_bp
     from .routes.user import user_bp
     from .routes.admin import admin_bp
+    from .routes.admin_api import admin_api_bp
     
     # 注册蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -106,6 +107,7 @@ def create_app(test_config=None):
     app.register_blueprint(records_bp, url_prefix='/api/records')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(admin_api_bp)
     
     # 配置前端静态文件
     frontend_dist_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend/dist')

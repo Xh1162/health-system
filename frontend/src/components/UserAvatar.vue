@@ -41,7 +41,9 @@ const avatarUrl = computed(() => {
   if (!userStore.state.avatar) {
     return 'https://via.placeholder.com/100'
   }
-  return userStore.state.avatar
+  const backendUrl = 'http://localhost:5008' 
+  const avatarPath = userStore.state.avatar
+  return avatarPath.startsWith('/') ? `${backendUrl}${avatarPath}` : `${backendUrl}/${avatarPath}`;
 })
 
 const handleAvatarChange = async (event) => {
@@ -57,7 +59,7 @@ const handleAvatarChange = async (event) => {
     const formData = new FormData()
     formData.append('avatar', file)
     
-    const response = await fetch(`/api/auth/avatar/${userStore.state.userData?.id}`, {
+    const response = await fetch(`/api/user/avatar`, {
       method: 'POST',
       body: formData,
       headers: {
@@ -68,7 +70,7 @@ const handleAvatarChange = async (event) => {
     const data = await response.json()
     
     if (data.success) {
-      userStore.updateAvatar(data.data.avatar)
+      userStore.updateAvatar(data.avatar_url)
       alert('头像更新成功！')
     } else {
       throw new Error(data.message || '头像上传失败')

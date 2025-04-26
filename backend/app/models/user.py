@@ -42,6 +42,10 @@ class User(db.Model):
             'is_active': self.is_active
         }
 
+    # Define the other side of the Report relationship explicitly
+    reports = db.relationship('Report',
+                              foreign_keys='Report.user_id', # Foreign key on the Report model
+                              back_populates='user')
 
 class UserProfile(db.Model):
     __tablename__ = 'user_profiles'

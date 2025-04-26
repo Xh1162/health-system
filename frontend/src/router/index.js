@@ -15,8 +15,35 @@ import AvatarTest from '../components/AvatarTest.vue'
 import useUserStore from '../stores/userStore'
 import adminGuard from './adminGuard'
 
+// 导入管理员页面组件
+import AdminLoginPage from '../views/admin/AdminLoginPage.vue'
+import AdminDashboardPage from '../views/admin/AdminDashboardPage.vue'
+import AdminFoodManagementPage from '../views/admin/AdminFoodManagementPage.vue'
+import AdminLayout from '../views/admin/AdminLayout.vue'
+
 // 创建userStore实例
 const userStore = useUserStore()
+
+// --- 管理员导航守卫 ---
+const requireAdminAuth = (to, from, next) => {
+  // 从 userStore 获取认证状态和用户角色
+  const isAuthenticated = userStore.state.isAuthenticated;
+  const userRole = userStore.state.userData?.role; 
+
+  console.log('Admin Guard - isAuthenticated:', isAuthenticated, 'Role:', userRole); // 添加日志
+
+  if (isAuthenticated && userRole === 'admin') {
+    // 已登录且是管理员
+    console.log('Admin Guard - Access granted.');
+    next(); // 允许访问
+  } else {
+    // 未登录或不是管理员，重定向到普通登录页（或首页）
+    console.log('Admin Guard - Access denied. Redirecting to Login.');
+    // 重定向到普通登录页，因为不再需要单独的管理员登录
+    // 如果已经登录但不是管理员，也可以考虑重定向到用户仪表盘或首页
+    next({ name: 'Login', query: { redirect: to.fullPath } }); 
+  }
+};
 
 const routes = [
   {
@@ -90,34 +117,75 @@ const routes = [
     component: AvatarTest,
     meta: { requiresAuth: true }
   },
-  // 管理员路由
+
+  // --- 管理员登录路由 (保持独立) ---  // 注释掉或移除，因为不再需要单独登录
+  /*
   {
-    path: '/admin',
-    component: () => import('../views/admin/AdminLayout.vue'),
-    beforeEnter: adminGuard,
+    path: '/admin/login',
+    name: 'AdminLogin',
+    component: AdminLoginPage,
+    beforeEnter: (to, from, next) => {
+      // 检查 userStore 而不是 admin_token
+      if (userStore.state.isAuthenticated && userStore.state.userData?.role === 'admin') {
+        next({ name: 'AdminDashboard' }); // Redirect to dashboard if already logged in as admin
+      } else {
+        next(); // Allow access to login page otherwise
+      }
+    }
+  },
+  */
+
+  // --- 管理员主路由 (使用 AdminLayout) ---
+  {
+    path: '/admin', // Parent route for admin section
+    component: AdminLayout, // Use the new layout
+    redirect: '/admin/dashboard', // Redirect /admin to /admin/dashboard
+    meta: { requiresAdmin: true }, // <-- ADD metadata to identify admin routes
     children: [
       {
-        path: '',
+        path: 'dashboard', // Becomes /admin/dashboard
         name: 'AdminDashboard',
-        component: () => import('../views/admin/Dashboard.vue')
+        component: AdminDashboardPage
       },
       {
-        path: 'users',
-        name: 'UserManagement',
-        component: () => import('../views/admin/UserManagement.vue')
+        path: 'food-items', // Becomes /admin/food-items
+        name: 'AdminFoodManagement',
+        component: AdminFoodManagementPage
       },
       {
-        path: 'announcements',
-        name: 'AnnouncementManagement',
-        component: () => import('../views/admin/Dashboard.vue') // 暂时使用仪表盘作为占位符
-      },
-      {
-        path: 'logs',
-        name: 'SystemLogs',
-        component: () => import('../views/admin/Dashboard.vue') // 暂时使用仪表盘作为占位符
+        path: 'users', // Becomes /admin/users
+        name: 'AdminUserManagement',
+        // Use lazy loading for potentially large pages
+        component: () => import('../views/admin/AdminUserManagementPage.vue')
       }
+      // --- 未来可以添加更多子路由 ---
+      // {
+      //   path: 'users',
+      //   name: 'AdminUserManagement',
+      //   component: () => import('../views/admin/AdminUserManagementPage.vue')
+      // },
+      // {
+      //   path: 'suggestions',
+      //   name: 'AdminSuggestionManagement',
+      //   component: () => import('../views/admin/AdminSuggestionManagementPage.vue')
+      // }
     ]
   }
+  // --- 移除或注释掉旧的/冲突的 /admin 路由配置 ---
+  /*
+   {
+     path: '/admin/dashboard',
+     name: 'AdminDashboard_Old', // Renamed to avoid conflict during refactor
+     component: AdminDashboardPage,
+     beforeEnter: requireAdminAuth
+   },
+   {
+     path: '/admin/food-items',
+     name: 'AdminFoodManagement_Old', // Renamed to avoid conflict
+     component: AdminFoodManagementPage,
+     beforeEnter: requireAdminAuth
+   },
+   */
 ]
 
 const router = createRouter({
@@ -125,31 +193,48 @@ const router = createRouter({
   routes
 })
 
+// --- 全局前置守卫 (处理所有认证) ---
 router.beforeEach((to, from, next) => {
-  // 检查userStore是否正确初始化
-  if (!userStore || !userStore.state) {
-    console.warn('userStore未正确初始化，跳过认证检查')
-    next()
-    return
-  }
-  
-  const isAuthenticated = userStore.state.isAuthenticated
-  
-  // 添加调试信息
-  console.log('路由守卫 - 目标路由:', to.path)
-  console.log('路由守卫 - 认证状态:', isAuthenticated)
-  
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    // 需要认证但未登录，重定向到登录页
-    console.log('需要认证但未登录，重定向到登录页')
-    next({ name: 'Login', query: { redirect: to.fullPath }})
+  const isAuthenticated = userStore.state.isAuthenticated;
+  const userRole = userStore.state.userData?.role;
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin); // Check for admin meta
+
+  console.log('Global Guard - Path:', to.path, 'RequiresAuth:', requiresAuth, 'RequiresAdmin:', requiresAdmin, 'IsAuth:', isAuthenticated, 'Role:', userRole);
+
+  if (requiresAdmin) {
+    // --- Admin Route Check ---
+    if (isAuthenticated && userRole === 'admin') {
+      console.log('Global Guard - Admin access granted.');
+      next(); // Allow access
+    } else {
+      console.log('Global Guard - Admin access denied. Redirecting to Login.');
+      // Redirect non-admins or unauthenticated users trying to access admin pages
+      next({ name: 'Login', query: { redirect: to.fullPath } });
+    }
+  } else if (requiresAuth) {
+    // --- Regular Authenticated Route Check ---
+    if (isAuthenticated) {
+      console.log('Global Guard - Regular authenticated access granted.');
+      next(); // Allow access
+    } else {
+      console.log('Global Guard - Regular requires auth but not authenticated. Redirecting to Login.');
+      next({ name: 'Login', query: { redirect: to.fullPath } });
+    }
   } else if (to.name === 'Login' && isAuthenticated) {
-    // 已登录用户访问登录页，重定向到首页
-    console.log('已登录用户访问登录页，重定向到首页')
-    next({ name: 'Dashboard' })
+      // --- Prevent logged-in users from accessing Login page ---
+      // Redirect based on role
+      if (userRole === 'admin') {
+          console.log('Global Guard - Admin already logged in, redirecting to Admin Dashboard.');
+          next({ name: 'AdminDashboard' });
+      } else {
+          console.log('Global Guard - User already logged in, redirecting to User Dashboard.');
+          next({ name: 'Dashboard' });
+      }
   } else {
-    console.log('正常导航到:', to.path)
-    next()
+    // --- Public Route or other cases ---
+    console.log('Global Guard - Public route or unhandled case.');
+    next(); // Allow access to public routes
   }
 })
 

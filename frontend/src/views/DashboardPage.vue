@@ -41,6 +41,7 @@
             </button>
           </div>
         </div>
+        <!-- Conditionally render Admin Button -->
         <div v-if="isAdmin" class="admin-entry">
           <router-link to="/admin" class="admin-link">
             <span class="admin-icon">⚙️</span>
@@ -420,19 +421,9 @@ const router = useRouter()
 const userStore = useUserStore()
 
 // 用户信息
-const username = computed(() => userStore.state.username || '用户')
-const avatarUrl = computed(() => {
-  // 直接从userStore获取avatar，它已经在userStore中被处理成完整URL
-  const avatar = userStore.state.userData?.avatar
-  
-  if (!avatar) {
-    // 默认头像
-    return 'http://localhost:5008/default-avatar.png'
-  }
-  
-  console.log('使用头像URL:', avatar)
-  return avatar
-})
+const username = computed(() => userStore.state.userData?.username || '用户')
+const avatarUrl = computed(() => userStore.state.userData?.avatar || '')
+const isAdmin = computed(() => userStore.state.userData?.role === 'admin')
 
 // 日期和季节
 const now = new Date()
@@ -758,6 +749,7 @@ const closeUserMenu = (event) => {
 
 // 添加全局点击事件监听器
 onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
   // 查询记录数据
   queryRecords()
   
@@ -766,16 +758,17 @@ onMounted(() => {
   
   // 获取仪表盘数据
   fetchDashboardData()
+  
+  console.log("DashboardPage mounted"); // Example of existing logic
+  fetchDashboardData(); // Assuming this exists
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
   // 清除定时器
   if (tipsSwitchTimer) {
     clearInterval(tipsSwitchTimer)
   }
-  
-  // 移除事件监听
-  document.removeEventListener('click', handleClickOutside)
 })
 
 // 食物相关方法
@@ -907,6 +900,7 @@ const closeDialogOnOverlayClick = (event) => {
 
 // 生命周期钩子
 onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
   // 查询记录数据
   queryRecords()
   
@@ -915,16 +909,17 @@ onMounted(() => {
   
   // 获取仪表盘数据
   fetchDashboardData()
+  
+  console.log("DashboardPage mounted"); // Example of existing logic
+  fetchDashboardData(); // Assuming this exists
 })
 
 onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
   // 清除定时器
   if (tipsSwitchTimer) {
     clearInterval(tipsSwitchTimer)
   }
-  
-  // 移除事件监听
-  document.removeEventListener('click', handleClickOutside)
 })
 
 // 添加点击外部关闭用户菜单的事件监听
@@ -993,8 +988,8 @@ const queryRecords = async () => {
   }
 }
 
-// 在script setup中添加
-const isAdmin = computed(() => userStore.state.userData?.role === 'admin')
+// 注释掉或删除这一行重复的声明
+// const isAdmin = computed(() => userStore.state.userData?.role === 'admin')
 </script>
 
 <style scoped>
