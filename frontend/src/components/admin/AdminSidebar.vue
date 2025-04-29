@@ -5,8 +5,10 @@
       <ul>
         <li><router-link to="/admin/dashboard">仪表盘</router-link></li>
         <li><router-link to="/admin/users">用户管理</router-link></li>
-        <li><router-link to="/admin/records">记录管理</router-link></li>
-        <li><router-link to="/admin/reports">报告管理</router-link></li>
+        <li><router-link to="/admin/food-items">食物管理</router-link></li>
+        <li><router-link to="/admin/user-reports">用户报告</router-link></li>
+        <li><router-link to="/admin/advice">咨询管理</router-link></li>
+        <!-- <li><router-link to="/admin/records">记录管理</router-link></li> -->
         <!-- 在这里添加更多侧边栏链接 -->
       </ul>
     </nav>

@@ -203,17 +203,17 @@
           </div>
           <span class="action-text">运动记录</span>
         </div>
+        <div class="action-card" @click="(e) => showRecordDialog('body_status', e)">
+          <div class="action-icon-wrapper">
+            <span class="action-icon">⚖️</span>
+          </div>
+          <span class="action-text">身体状况记录</span>
+        </div>
         <div class="action-card" @click="(e) => showRecordDialog('mood', e)">
           <div class="action-icon-wrapper">
             <span class="action-icon">😊</span>
           </div>
           <span class="action-text">心情记录</span>
-        </div>
-        <div class="action-card" @click="(e) => showRecordDialog('health', e)">
-          <div class="action-icon-wrapper">
-            <span class="action-icon">💪</span>
-          </div>
-          <span class="action-text">身体状况记录</span>
         </div>
       </div>
 
@@ -355,8 +355,10 @@
             ></textarea>
           </div>
 
-          <!-- 身体感受记录 -->
-          <div v-if="recordType === 'health'" class="record-form">
+          <!-- 合并后的身体状况记录 -->
+          <div v-else-if="recordType === 'body_status'" class="record-form">
+            
+            <!-- 整体感受 (Moved from 'health') -->
             <div class="section-title">整体感受</div>
             <div class="feeling-grid">
               <button 
@@ -371,6 +373,7 @@
               </button>
             </div>
 
+            <!-- 身体状态 (Moved from 'health') -->
             <div class="section-title">身体状态</div>
             <div class="status-tags">
               <button 
@@ -383,13 +386,23 @@
                 {{ status.icon }} {{ status.label }}
               </button>
             </div>
+            
+            <!-- 身体数据 (体重/BMI) -->
+            <div class="section-title">身体数据</div>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="weight">体重 (kg)</label>
+                <input type="number" id="weight" v-model.number="bodyStatusData.weight_kg" placeholder="例如: 70.5" step="0.1" min="0" />
+              </div>
+              <div class="form-group">
+                <label for="bmi">BMI (可选)</label>
+                <input type="number" id="bmi" v-model.number="bodyStatusData.bmi" placeholder="例如: 22.5" step="0.1" min="0" />
+              </div>
+            </div>
 
-            <div class="section-title">备注</div>
-            <textarea 
-              v-model="healthNote"
-              class="health-note"
-              placeholder="添加备注..."
-            ></textarea>
+             <!-- 通用备注 -->
+             <div class="section-title">备注 (可选)</div>
+             <textarea v-model="note" rows="3" placeholder="记录一些额外信息..."></textarea>
           </div>
 
           <div class="dialog-footer">
@@ -409,7 +422,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import useUserStore from '../stores/userStore';
 import UserAvatar from '../components/user/UserAvatar.vue';
@@ -535,18 +548,24 @@ const getDialogTitle = () => {
     food: '记录饮食',
     exercise: '记录运动',
     mood: '记录心情',
-    health: '身体感受'
+    body_status: '身体感受'
   }
   return titles[recordType.value] || ''
 }
 
-const showRecordDialog = (type) => {
-  recordType.value = type
-  resetForm() // 先重置表单
-  nextTick(() => {
-    isDialogVisible.value = true // 然后显示对话框
-  })
-}
+const showRecordDialog = (type, event) => {
+  event.stopPropagation(); 
+  recordType.value = type;
+  note.value = '';
+  saveError.value = '';
+  selectedDate.value = new Date().toISOString().split('T')[0]; 
+  Object.assign(foodData, { food_name: '', meal_time: '' });
+  Object.assign(exerciseData, { exercise_type: '', duration: null, intensity: '' });
+  Object.assign(moodData, { mood_type: '' });
+  Object.assign(healthData, { feeling: '', status: [] });
+  Object.assign(bodyStatusData, { weight_kg: null, bmi: null }); // Reset body status data
+  isDialogVisible.value = true;
+};
 
 const closeDialog = () => {
   isDialogVisible.value = false
@@ -680,7 +699,7 @@ const submitRecord = async () => {
       // 使用API模块提交
       await createMoodRecord(data)
       showSuccessMessage('心情记录已保存')
-    } else if (recordType.value === 'health') {
+    } else if (recordType.value === 'body_status') {
       if (!selectedFeeling.value) {
         alert('请选择身体感受')
         return
@@ -990,6 +1009,20 @@ const queryRecords = async () => {
 
 // 注释掉或删除这一行重复的声明
 // const isAdmin = computed(() => userStore.state.userData?.role === 'admin')
+
+const healthData = reactive({ feeling: '', status: [] })
+// Add reactive state for body status data
+const bodyStatusData = reactive({ weight_kg: null, bmi: null })
+
+const note = ref('')
+const saveError = ref('')
+
+const foodData = reactive({ food_name: '', meal_time: '' })
+const exerciseData = reactive({ exercise_type: '', duration: null, intensity: '' })
+const moodData = reactive({ mood_type: '' })
+
+// ... (rest of script setup)
+
 </script>
 
 <style scoped>
@@ -3267,5 +3300,38 @@ const queryRecords = async () => {
   width: 130px !important;
   height: 130px !important;
   font-size: 52px !important;
+}
+
+/* Styles for Body Status form (add these if not already present) */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.9rem;
+    color: #334155;
+}
+
+.form-group input[type="number"] {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 0.95rem;
+}
+
+.dialog-content textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    margin-top: 0.5rem; 
+    resize: vertical;
 }
 </style> 

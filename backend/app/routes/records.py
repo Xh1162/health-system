@@ -61,7 +61,7 @@ def create_record():
             return bad_request('记录类型不能为空')
         
         # 验证记录类型
-        valid_types = ['exercise', 'mood', 'health', 'food']
+        valid_types = ['exercise', 'mood', 'health', 'food', 'body_status']
         if record_type not in valid_types:
             print(f"无效的记录类型: {record_type}")
             return bad_request('无效的记录类型')
@@ -107,6 +107,23 @@ def create_record():
         elif record_type == 'food':
             record.food_name = data.get('food_name')
             record.meal_time = data.get('meal_time')
+        elif record_type == 'body_status':
+            weight = data.get('weight_kg')
+            bmi_val = data.get('bmi')
+            if weight is not None:
+                try:
+                    record.weight_kg = float(weight)
+                except (ValueError, TypeError):
+                    print(f"无效的体重值: {weight}")
+                    # 可以选择返回错误或忽略无效值，这里选择忽略
+                    pass
+            if bmi_val is not None:
+                try:
+                    record.bmi = float(bmi_val)
+                except (ValueError, TypeError):
+                    print(f"无效的BMI值: {bmi_val}")
+                    # 选择忽略无效值
+                    pass
         
         # 保存记录
         db.session.add(record)
@@ -257,4 +274,97 @@ def get_records_stats():
                 'date': mood.created_at.isoformat()
             } for mood in recent_moods
         ]
-    }) 
+    })
+
+@records_bp.route('/trends', methods=['GET'])
+@jwt_required()
+def get_trends_data():
+    """获取指定时间范围和数据类型的趋势数据"""
+    user_id = get_jwt_identity()
+    
+    # 获取查询参数
+    try:
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date') # 默认为今天
+        # 需要的数据类型，逗号分隔，例如: weight_kg,mood,exercise_duration
+        data_types_str = request.args.get('data_types', '') 
+        
+        # 解析日期
+        end_date = datetime.utcnow().date() # 默认结束日期为今天
+        if end_date_str:
+            try:
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return bad_request('结束日期格式无效，请使用 YYYY-MM-DD')
+        
+        start_date = None # 默认为无开始日期限制 (或可以设置一个默认范围)
+        if start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return bad_request('开始日期格式无效，请使用 YYYY-MM-DD')
+        
+        # 解析需要的数据类型
+        if not data_types_str:
+            return bad_request('必须通过 data_types 参数指定至少一种数据类型')
+        data_types = [dt.strip() for dt in data_types_str.split(',') if dt.strip()]
+        valid_data_types = ['weight_kg', 'bmi', 'mood', 'exercise_duration'] # 可支持的趋势类型
+        requested_types = [dt for dt in data_types if dt in valid_data_types]
+        if not requested_types:
+            return bad_request(f'不支持的数据类型。支持的类型: {valid_data_types}')
+
+        # 构建基础查询
+        query = Record.query.filter(Record.user_id == user_id)
+        # 应用日期范围 (注意要查询 record_date 而不是 created_at)
+        # 将 date 对象转换为 datetime 对象以便与 DateTime 列比较
+        if start_date:
+             query = query.filter(Record.record_date >= datetime.combine(start_date, datetime.min.time()))
+        # 包含结束日期当天的数据
+        query = query.filter(Record.record_date < datetime.combine(end_date + timedelta(days=1), datetime.min.time()))
+
+        # 按日期排序，方便处理
+        query = query.order_by(Record.record_date.asc())
+        
+        # 查询数据库
+        records = query.all()
+        
+        # 处理结果
+        trends_data = {dtype: [] for dtype in requested_types} # 初始化结果字典
+        
+        for record in records:
+            record_date_str = record.record_date.strftime('%Y-%m-%d')
+            
+            if 'weight_kg' in requested_types and record.type == 'body_status' and record.weight_kg is not None:
+                trends_data['weight_kg'].append({'date': record_date_str, 'value': record.weight_kg})
+                
+            if 'bmi' in requested_types and record.type == 'body_status' and record.bmi is not None:
+                trends_data['bmi'].append({'date': record_date_str, 'value': record.bmi})
+                
+            if 'mood' in requested_types and record.type == 'mood' and record.mood_type:
+                 # 对于心情，我们直接返回值（字符串），前端可以进行映射或展示
+                trends_data['mood'].append({'date': record_date_str, 'value': record.mood_type})
+                
+            if 'exercise_duration' in requested_types and record.type == 'exercise' and record.duration is not None:
+                trends_data['exercise_duration'].append({'date': record_date_str, 'value': record.duration})
+
+        # 对于 exercise_duration，我们可能需要按天聚合（如果一天有多条记录）
+        if 'exercise_duration' in trends_data:
+            from collections import defaultdict
+            aggregated_duration = defaultdict(float)
+            for item in trends_data['exercise_duration']:
+                aggregated_duration[item['date']] += item['value']
+            trends_data['exercise_duration'] = [{'date': d, 'value': v} for d, v in sorted(aggregated_duration.items())]
+            
+        return jsonify({
+            'success': True,
+            'data': trends_data
+        })
+        
+    except Exception as e:
+        print(f"获取趋势数据时发生错误: {str(e)}")
+        import traceback
+        traceback.print_exc() # 打印详细错误堆栈
+        return jsonify({
+            'success': False,
+            'message': f'获取趋势数据失败: {str(e)}'
+        }), 500 

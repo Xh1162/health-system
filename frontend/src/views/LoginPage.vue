@@ -82,8 +82,20 @@ const login = async () => {
       // 登录成功，更新用户状态
       userStore.login(response.data.data)
       
-      // 检查是否有重定向路径
-      const redirectPath = route.query.redirect || '/dashboard'
+      // 根据角色决定重定向路径
+      const userRole = userStore.state.userData?.role
+      let defaultRedirectPath = '/dashboard' // 默认用户仪表盘
+
+      if (userRole === 'admin') {
+        defaultRedirectPath = '/admin/dashboard' // 管理员跳转到管理员仪表盘
+      }
+
+      // 检查是否有重定向查询参数 (可选，如果需要处理)
+      // const redirectPath = route.query.redirect || defaultRedirectPath;
+      // 这里我们简化为总是跳转到对应角色的默认仪表盘
+      const redirectPath = defaultRedirectPath
+
+      console.log(`登录成功，角色: ${userRole}, 跳转到: ${redirectPath}`); // 添加日志
       router.push(redirectPath)
     } else {
       error.value = response.data.message || '登录失败'

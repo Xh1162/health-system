@@ -5,9 +5,10 @@
     <p>欢迎来到管理员界面！</p>
     <!-- 这里将来会添加更多内容，如统计信息、快捷链接等 -->
     <div>
-        <!-- 使用相对路径，因为现在是子路由 -->
-        <router-link to="/admin/food-items" class="link-button">管理食物条目</router-link>
-        <router-link to="/admin/users" class="link-button">管理用户账号</router-link>
+        <!-- 使用 router-link 并确保路径与侧边栏一致 -->
+        <router-link to="/admin/food-items" class="link-button">食物管理</router-link>
+        <router-link to="/admin/users" class="link-button">用户管理</router-link>
+        <router-link to="/admin/user-reports" class="link-button">用户报告</router-link>
     </div>
   </div>
 </template>

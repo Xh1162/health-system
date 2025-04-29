@@ -157,6 +157,22 @@ const routes = [
         name: 'AdminUserManagement',
         // Use lazy loading for potentially large pages
         component: () => import('../views/admin/AdminUserManagementPage.vue')
+      },
+      {
+        path: 'user-reports', // Becomes /admin/user-reports
+        name: 'AdminUserReports',
+        component: () => import('../views/admin/UserReportsPage.vue') // Use lazy loading
+      },
+      {
+        path: 'user-report/:userId', // 动态路由，匹配用户ID
+        name: 'UserReport', // 与 UserReportsPage.vue 中使用的名称匹配
+        component: () => import('../views/admin/UserReportDetailPage.vue'), // 指向新的详情页组件
+        props: true // 允许将路由参数作为 props 传递给组件
+      },
+      {
+        path: 'advice', // 路径变为 /admin/advice
+        name: 'AdminAdviceManagement',
+        component: () => import('../views/admin/AdviceManagementPage.vue') // 指向新的管理页面组件
       }
       // --- 未来可以添加更多子路由 ---
       // {

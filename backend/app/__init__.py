@@ -100,6 +100,7 @@ def create_app(test_config=None):
     from .routes.user import user_bp
     from .routes.admin import admin_bp
     from .routes.admin_api import admin_api_bp
+    from .routes.suggestions import suggestions_bp
     
     # 注册蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -108,6 +109,7 @@ def create_app(test_config=None):
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(admin_api_bp)
+    app.register_blueprint(suggestions_bp, url_prefix='/api/suggestions')
     
     # 配置前端静态文件
     frontend_dist_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend/dist')
@@ -154,6 +156,7 @@ def create_app(test_config=None):
         from .models.record import Record, HealthStatus
         from .models.report import Report, Recommendation
         from .models.admin import SystemSetting, Announcement, ActivityLog
+        from .models.manual_suggestion import ManualSuggestion
         
         # 创建表
         db.create_all()

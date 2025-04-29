@@ -2,9 +2,10 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from functools import wraps
 from sqlalchemy import asc, desc # Import asc and desc for sorting
+from datetime import datetime # <--- 需要导入 datetime
 
-from ..models import db, FoodItem, User
-from ..utils.errors import forbidden, not_found
+from ..models import db, FoodItem, User, Report, AdviceRequest # <--- 导入 AdviceRequest 模型
+from ..utils.errors import forbidden, not_found, bad_request # <--- 可能需要 bad_request
 
 admin_api_bp = Blueprint('admin_api', __name__, url_prefix='/api/admin')
 
@@ -481,6 +482,181 @@ def create_user():
         db.session.rollback()
         print(f"Error creating user: {e}") # Basic logging
         return jsonify({'success': False, 'message': f'创建用户失败: {str(e)}'}), 500
+
+# --- 用户健康报告和建议接口 (更新后) ---
+
+@admin_api_bp.route('/users/<int:user_id>/report', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_user_health_report(user_id):
+    """获取指定用户的最新健康报告"""
+    # 首先检查用户是否存在
+    user = User.query.get(user_id)
+    if not user:
+        return not_found(f'用户 {user_id} 未找到')
+
+    try:
+        # 查询该用户的最新报告 (按发布时间降序排列)
+        latest_report = Report.query.filter_by(user_id=user_id)\
+                                    .order_by(Report.published_at.desc())\
+                                    .first()
+
+        if not latest_report:
+            # 如果没有报告，可以返回成功但数据为空，或返回404
+            # 返回 404 更清晰地表明资源（报告）不存在
+            return not_found(f'用户 {user_id} 的健康报告未找到')
+
+        # 将 Report 对象转换为字典，并准备前端需要的数据结构
+        report_dict = latest_report.to_dict()
+        
+        # 构建符合前端期望的数据结构
+        response_data = {
+            'report_id': report_dict.get('id'),
+            'user_id': report_dict.get('user_id'),
+            'userName': user.username, # 从关联的 User 对象获取用户名
+            'generated_at': report_dict.get('published_at'), # 使用 published_at 作为生成时间
+            # 从 report_data JSON 字段中提取具体指标
+            **(report_dict.get('report_data') or {}), # 解包 report_data JSON
+            # 将 report 模型的 admin_advice 映射到 admin_recommendation
+            'admin_recommendation': report_dict.get('admin_advice') or '' 
+            # 如果需要 admin_summary，也可以添加: 'admin_summary': report_dict.get('admin_summary')
+        }
+
+        return jsonify({
+            'success': True,
+            'data': response_data
+        })
+        
+    except Exception as e:
+        print(f"Error fetching health report for user {user_id}: {e}")
+        return jsonify({'success': False, 'message': '获取健康报告失败'}), 500
+
+@admin_api_bp.route('/users/<int:user_id>/recommendation', methods=['POST'])
+@jwt_required()
+@admin_required
+def submit_user_recommendation(user_id):
+    """提交或更新指定用户 *最新报告* 的管理员建议 (admin_advice)"""
+    # 检查用户是否存在
+    user = User.query.get(user_id)
+    if not user:
+        return not_found(f'用户 {user_id} 未找到')
+
+    data = request.get_json()
+    if not data or 'recommendation' not in data:
+        return jsonify({'success': False, 'message': '请求体必须包含 \'recommendation\' 字段'}), 400
+
+    recommendation_text = data.get('recommendation')
+
+    try:
+        # 找到该用户的最新报告
+        latest_report = Report.query.filter_by(user_id=user_id)\
+                                    .order_by(Report.published_at.desc())\
+                                    .first()
+
+        if not latest_report:
+            # 如果没有报告，则无法提交建议
+            return not_found(f'无法为用户 {user_id} 提交建议，因为该用户尚无健康报告')
+
+        # 更新最新报告的 admin_advice 字段
+        latest_report.admin_advice = recommendation_text
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '建议已成功更新到最新报告'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error submitting recommendation for user {user_id}'s report: {e}")
+        return jsonify({'success': False, 'message': '提交建议失败'}), 500
+
+# --- 新增：管理员处理建议请求接口 ---
+
+@admin_api_bp.route('/advice-requests', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_advice_requests():
+    """获取建议请求列表 (支持按状态筛选和分页)"""
+    try:
+        # 获取查询参数
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        # 筛选状态，默认为 'pending'，可以传 'all' 获取所有，或 'answered' 等
+        status_filter = request.args.get('status', 'pending', type=str)
+
+        # 构建基础查询
+        query = AdviceRequest.query
+
+        # 应用状态筛选
+        if status_filter and status_filter.lower() != 'all':
+            query = query.filter(AdviceRequest.status == status_filter.lower())
+            
+        # 按请求时间排序 (最新优先)
+        query = query.order_by(AdviceRequest.requested_at.desc())
+        
+        # 执行查询与分页
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        items = pagination.items
+        
+        return jsonify({
+            'success': True,
+            'data': [item.to_dict() for item in items],
+            'pagination': {
+                'total_items': pagination.total,
+                'total_pages': pagination.pages,
+                'current_page': pagination.page,
+                'per_page': pagination.per_page,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        })
+
+    except Exception as e:
+        print(f"获取建议请求列表时出错: {str(e)}")
+        return jsonify({'success': False, 'message': '获取建议请求列表失败'}), 500
+
+@admin_api_bp.route('/advice-requests/<int:request_id>/respond', methods=['POST'])
+@jwt_required()
+@admin_required
+def respond_to_advice_request(request_id):
+    """管理员回复一个建议请求"""
+    admin_user_id = get_jwt_identity() # 获取当前管理员的ID
+    data = request.get_json()
+    
+    if not data or 'response_text' not in data or not data['response_text'].strip():
+        return bad_request('请求体必须包含非空的 \'response_text\' 字段')
+        
+    response_text = data.get('response_text')
+    
+    try:
+        # 查找请求
+        advice_request = AdviceRequest.query.get(request_id)
+        if not advice_request:
+            return not_found(f'ID 为 {request_id} 的建议请求未找到')
+            
+        # 检查请求是否已经是 answered 状态 (可选)
+        if advice_request.status == 'answered':
+             return bad_request('该请求已被回复')
+
+        # 更新请求状态和回复内容
+        advice_request.status = 'answered'
+        advice_request.response_text = response_text
+        advice_request.admin_id = admin_user_id
+        advice_request.responded_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '建议请求已成功回复',
+            'data': advice_request.to_dict() # 返回更新后的请求详情
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"回复建议请求 {request_id} 时出错: {str(e)}")
+        return jsonify({'success': False, 'message': '回复建议请求失败'}), 500
 
 # --- 其他管理员接口将在这里添加 ---
 # (User management endpoints)

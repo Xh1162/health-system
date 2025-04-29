@@ -6,7 +6,7 @@ class Record(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    type = db.Column(db.String(20), nullable=False)  # exercise, mood, health, food
+    type = db.Column(db.String(20), nullable=False)  # exercise, mood, health, food, body_status
     note = db.Column(db.Text)
     record_date = db.Column(db.DateTime, default=datetime.utcnow)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -26,6 +26,10 @@ class Record(db.Model):
     food_name = db.Column(db.String(100))
     meal_time = db.Column(db.String(20))  # breakfast, lunch, dinner, snack
     
+    # <-- 新增身体状态字段 -->
+    weight_kg = db.Column(db.Float, nullable=True) # 体重 (kg)
+    bmi = db.Column(db.Float, nullable=True) # BMI
+    
     # 关联到用户
     user = db.relationship('User', backref=db.backref('records', lazy='dynamic'))
     
@@ -35,8 +39,8 @@ class Record(db.Model):
             'user_id': self.user_id,
             'type': self.type,
             'note': self.note,
-            'record_date': self.record_date.strftime('%Y-%m-%d'),
-            'created_at': self.created_at.strftime('%Y-%m-%d')
+            'record_date': self.record_date.isoformat(),
+            'created_at': self.created_at.isoformat()
         }
         
         # 根据记录类型添加特定字段
@@ -59,6 +63,11 @@ class Record(db.Model):
             record_dict.update({
                 'food_name': self.food_name,
                 'meal_time': self.meal_time
+            })
+        elif self.type == 'body_status':
+            record_dict.update({
+                'weight_kg': self.weight_kg,
+                'bmi': self.bmi
             })
             
         return record_dict

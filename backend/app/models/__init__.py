@@ -14,6 +14,8 @@ from .record import Record, HealthStatus
 from .report import Report, ReportRequest, Recommendation
 from .admin import SystemSetting, Announcement, ActivityLog
 from .food import FoodItem
+from .manual_suggestion import ManualSuggestion
+from .advice_request import AdviceRequest
 
 # 导出所有模型
 __all__ = [
@@ -32,5 +34,7 @@ __all__ = [
     'SystemSetting',
     'Announcement',
     'ActivityLog',
-    'FoodItem'
+    'FoodItem',
+    'ManualSuggestion',
+    'AdviceRequest'
 ] 
