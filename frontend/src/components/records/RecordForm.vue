@@ -124,7 +124,7 @@
     </div>
 
     <!-- 身体状况记录表单 -->
-    <div v-if="recordType === 'health'" class="form-container">
+    <div v-if="recordType === 'body_status'" class="form-container">
       <div class="form-group">
         <label>整体感受</label>
         <div class="feeling-grid">
@@ -153,11 +153,24 @@
         </div>
       </div>
       <div class="form-group">
-        <label>备注</label>
+        <label>身体数据</label>
+        <div class="body-data-grid">
+          <div class="body-data-item">
+            <label for="weight">体重 (kg)</label>
+            <input type="number" id="weight" class="form-input" v-model.number="bodyStatusData.weight_kg" placeholder="例如: 70.5" step="0.1" min="0" />
+          </div>
+          <div class="body-data-item">
+            <label for="bmi">BMI (可选)</label>
+            <input type="number" id="bmi" class="form-input" v-model.number="bodyStatusData.bmi" placeholder="例如: 22.5" step="0.1" min="0" />
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>备注 (可选)</label>
         <textarea 
-          v-model="healthNote"
+          v-model="note" 
           class="form-textarea"
-          placeholder="添加备注..."
+          placeholder="记录一些额外信息..."
         ></textarea>
       </div>
     </div>
@@ -185,8 +198,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { createFoodRecord, createExerciseRecord, createMoodRecord, createHealthRecord } from '../../api/records'
+import { ref, computed, reactive } from 'vue'
+import { createFoodRecord, createExerciseRecord, createMoodRecord } from '../../api/records'
+import api from '../../api/index'
 import { ElMessage } from 'element-plus'
 
 // 记录类型
@@ -195,7 +209,7 @@ const recordTypes = [
   { value: 'food', label: '饮食', icon: '🍽️' },
   { value: 'exercise', label: '运动', icon: '🏃' },
   { value: 'mood', label: '心情', icon: '😊' },
-  { value: 'health', label: '身体状况', icon: '💪' }
+  { value: 'body_status', label: '身体状况', icon: '⚖️' }
 ]
 
 // 食物记录表单
@@ -216,7 +230,8 @@ const moodNote = ref('')
 // 身体状况表单
 const selectedFeeling = ref('')
 const selectedStatus = ref([])
-const healthNote = ref('')
+const bodyStatusData = reactive({ weight_kg: null, bmi: null })
+const note = ref('')
 
 // 日期选择
 const selectedDate = ref(new Date().toISOString().split('T')[0])
@@ -309,98 +324,98 @@ const showSuccessMessage = (message) => {
 
 // 提交记录
 const submitRecord = async () => {
+  isSubmitting.value = true
   try {
-    isSubmitting.value = true
-    console.log('开始提交记录，类型:', recordType.value)
-    
-    // 验证表单
+    let payload = {
+      record_date: selectedDate.value,
+      type: recordType.value
+    };
+    let apiCallPromise = null;
+
     if (recordType.value === 'food') {
-      if (!selectedMealTime.value) {
-        ElMessage.warning('请选择用餐时间')
-        return
+      if (!selectedMealTime.value || !foodName.value) {
+        ElMessage.warning('请填写用餐时间和食物名称')
+        return;
       }
-      if (!foodName.value) {
-        ElMessage.warning('请输入食物名称')
-        return
-      }
-      
-      // 准备数据
-      const data = {
-        food_name: foodName.value,
+      payload = { 
+        ...payload,
         meal_time: selectedMealTime.value,
-        note: foodNote.value,
-        record_date: selectedDate.value
-      }
+        food_name: foodName.value,
+        note: foodNote.value // Assuming food has its own note
+      };
+      // Use specific function or generic call
+      // apiCallPromise = createFoodRecord(payload);
+      // Let's switch to generic for consistency
+      apiCallPromise = api.post('/records', payload);
       
-      // 使用API模块提交
-      await createFoodRecord(data)
-      showSuccessMessage('饮食记录已保存')
-      resetForm('food')
     } else if (recordType.value === 'exercise') {
-      if (!selectedExercise.value) {
-        ElMessage.warning('请选择运动类型')
-        return
+      if (!selectedExercise.value || !exerciseDuration.value) {
+        ElMessage.warning('请选择运动类型并填写时长')
+        return;
       }
-      if (!exerciseDuration.value) {
-        ElMessage.warning('请输入运动时长')
-        return
-      }
-      
-      // 准备数据
-      const data = {
-        exercise_type: selectedExercise.value,
-        duration: parseInt(exerciseDuration.value),
-        intensity: selectedIntensity.value,
-        note: exerciseNote.value,
-        record_date: selectedDate.value
-      }
-      
-      // 使用API模块提交
-      await createExerciseRecord(data)
-      showSuccessMessage('运动记录已保存')
-      resetForm('exercise')
+       payload = { 
+         ...payload,
+         exercise_type: selectedExercise.value,
+         duration: parseInt(exerciseDuration.value),
+         intensity: selectedIntensity.value || 'medium',
+         note: exerciseNote.value // Assuming exercise has its own note
+       };
+      // apiCallPromise = createExerciseRecord(payload);
+      apiCallPromise = api.post('/records', payload);
+
     } else if (recordType.value === 'mood') {
       if (!selectedMood.value) {
         ElMessage.warning('请选择心情')
-        return
+        return;
       }
-      
-      // 准备数据
-      const data = {
+      payload = {
+        ...payload,
         mood_type: selectedMood.value,
-        note: moodNote.value,
-        record_date: selectedDate.value
-      }
-      
-      // 使用API模块提交
-      await createMoodRecord(data)
-      showSuccessMessage('心情记录已保存')
-      resetForm('mood')
-    } else if (recordType.value === 'health') {
+        note: moodNote.value // Assuming mood has its own note
+      };
+      // apiCallPromise = createMoodRecord(payload);
+      apiCallPromise = api.post('/records', payload);
+
+    } else if (recordType.value === 'body_status') {
       if (!selectedFeeling.value) {
-        ElMessage.warning('请选择整体感受')
-        return
+        // Maybe allow submitting without feeling/status?
+        // ElMessage.warning('请选择整体感受')
+        // return;
+      }
+      // Construct payload for body_status
+      payload = {
+        ...payload,
+        feeling: selectedFeeling.value || null, // Send null if empty
+        status: selectedStatus.value.length > 0 ? selectedStatus.value : null, // Send null if empty
+        note: note.value // Use general note
+      };
+      // Add weight and BMI if present
+      const weight = parseFloat(bodyStatusData.weight_kg);
+      const bmi = parseFloat(bodyStatusData.bmi);
+      if (!isNaN(weight)) {
+        payload.weight_kg = weight;
+      }
+      if (!isNaN(bmi)) {
+        payload.bmi = bmi;
       }
       
-      // 准备数据
-      const data = {
-        feeling: selectedFeeling.value,
-        status: selectedStatus.value,
-        note: healthNote.value,
-        record_date: selectedDate.value
-      }
-      
-      // 使用API模块提交
-      await createHealthRecord(data)
-      showSuccessMessage('身体状况记录已保存')
-      resetForm('health')
+      // Use the generic api.post call directly, no need for createHealthRecord
+      apiCallPromise = api.post('/records', payload); 
     }
-    
-    // 发出记录已提交的事件
-    emit('record-submitted')
+
+    if (apiCallPromise) {
+       await apiCallPromise;
+       showSuccessMessage(` ${recordTypes.find(t => t.value === recordType.value)?.label || ''}记录已保存`);
+       resetForm(recordType.value);
+       resetForm('all'); // Also reset general note and date
+    } else {
+        console.error("No valid record type selected or API call promise not set.");
+        ElMessage.error('无效的记录类型');
+    }
+
   } catch (error) {
-    console.error('提交记录失败:', error)
-    ElMessage.error(`提交失败: ${error.message || '未知错误'}`)
+    console.error('Error submitting record:', error)
+    ElMessage.error(error.response?.data?.message || '保存记录失败')
   } finally {
     isSubmitting.value = false
   }
@@ -426,10 +441,16 @@ const resetForm = (type) => {
     moodNote.value = ''
   }
   
-  if (type === 'health' || type === 'all') {
+  if (type === 'body_status' || type === 'all') {
     selectedFeeling.value = ''
     selectedStatus.value = []
-    healthNote.value = ''
+    bodyStatusData.weight_kg = null
+    bodyStatusData.bmi = null
+  }
+  
+  if (type === 'all') {
+    note.value = ''
+    selectedDate.value = new Date().toISOString().split('T')[0]
   }
 }
 
@@ -637,5 +658,23 @@ const emit = defineEmits(['record-submitted'])
   .intensity-buttons {
     flex-direction: column;
   }
+}
+
+.body-data-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+
+.body-data-item label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.body-data-item input {
+  width: 100%;
 }
 </style> 

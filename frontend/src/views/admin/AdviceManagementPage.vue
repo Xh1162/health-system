@@ -34,7 +34,16 @@
       <div v-else class="requests-list">
         <div v-for="request in requests" :key="request.id" class="request-card">
           <div class="request-header">
-            <span class="username">用户: {{ request.requester_username || '未知' }}</span>
+            <router-link 
+              :to="`/admin/reports/user/${request.requester_id}`" 
+              class="username-link"
+              title="查看用户详细报告"
+              v-if="request.requester_id" 
+            >
+              用户: {{ request.requester_username || '未知' }} (ID: {{ request.requester_id }})
+            </router-link>
+            <span v-else class="username">用户: {{ request.requester_username || '未知' }}</span>
+            
             <span class="timestamp">{{ formatDate(request.requested_at) }}</span>
             <span :class="['status-badge', `status-${request.status}`]">{{ request.status }}</span>
           </div>
@@ -281,6 +290,11 @@ onMounted(() => {
     padding-bottom: 0.5rem;
     border-bottom: 1px solid #f1f5f9;
     font-size: 0.9rem;
+}
+
+.request-header .username-link {
+    font-weight: 600;
+    color: #1e293b;
 }
 
 .request-header .username {

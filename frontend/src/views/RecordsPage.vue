@@ -276,7 +276,7 @@
             </template>
 
             <!-- 身体状况记录编辑表单 -->
-            <template v-if="editingType === 'health'">
+            <template v-if="editingType === 'body_status'">
               <div class="form-group">
                 <label>整体感受</label>
                 <div class="feeling-grid">
@@ -302,6 +302,19 @@
                   >
                     {{ status.icon }} {{ status.label }}
                   </button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>身体数据</label>
+                <div class="body-data-grid">
+                  <div class="body-data-item">
+                    <label for="edit-weight">体重 (kg)</label>
+                    <input type="number" id="edit-weight" class="form-input" v-model.number="editingRecord.weight_kg" placeholder="例如: 70.5" step="0.1" min="0" />
+                  </div>
+                  <div class="body-data-item">
+                    <label for="edit-bmi">BMI (可选)</label>
+                    <input type="number" id="edit-bmi" class="form-input" v-model.number="editingRecord.bmi" placeholder="例如: 22.5" step="0.1" min="0" />
+                  </div>
                 </div>
               </div>
               <div class="form-group">
@@ -506,6 +519,19 @@
                 </div>
               </div>
               <div class="form-group">
+                <label>身体数据</label>
+                <div class="body-data-grid">
+                  <div class="body-data-item">
+                    <label for="edit-weight">体重 (kg)</label>
+                    <input type="number" id="edit-weight" class="form-input" v-model.number="editingRecord.weight_kg" placeholder="例如: 70.5" step="0.1" min="0" />
+                  </div>
+                  <div class="body-data-item">
+                    <label for="edit-bmi">BMI (可选)</label>
+                    <input type="number" id="edit-bmi" class="form-input" v-model.number="editingRecord.bmi" placeholder="例如: 22.5" step="0.1" min="0" />
+                  </div>
+                </div>
+              </div>
+              <div class="form-group">
                 <label>备注</label>
                 <textarea 
                   v-model="editingRecord.note"
@@ -539,11 +565,12 @@
 
 <script setup>
 import { ref, onMounted, computed, onUnmounted } from 'vue'
-import { getAllRecords, updateFoodRecord, updateExerciseRecord, updateMoodRecord, updateHealthRecord, deleteRecord, createFoodRecord, createExerciseRecord, createMoodRecord, createHealthRecord } from '../api/records'
+import { getAllRecords, updateFoodRecord, updateExerciseRecord, updateMoodRecord, deleteRecord, createFoodRecord, createExerciseRecord, createMoodRecord } from '../api/records'
 import { useRouter } from 'vue-router'
 import UserAvatar from '../components/UserAvatar.vue'
 import useUserStore from '../stores/userStore'
 import { ElMessage } from 'element-plus'
+import api from '../api/index'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -811,78 +838,133 @@ const fetchRecords = async (days) => {
 const isEditDialogVisible = ref(false)
 const editingRecord = ref(null)
 const editingType = ref('')
+const isSaving = ref(false)
 
 // 编辑记录
 const editRecord = (record, type) => {
-  editingRecord.value = { ...record }
-  
-  // 使用created_at作为record_date
-  if (record.created_at) {
-    editingRecord.value.record_date = record.created_at.split('T')[0]
+  // 深拷贝记录，避免直接修改原始数据
+  editingRecord.value = JSON.parse(JSON.stringify(record));
+
+  // 优先使用 record_date，其次 created_at，最后今天，格式化为 YYYY-MM-DD
+  if (editingRecord.value.record_date) {
+      editingRecord.value.record_date_only = editingRecord.value.record_date.split('T')[0];
+  } else if (editingRecord.value.created_at) {
+      editingRecord.value.record_date_only = editingRecord.value.created_at.split('T')[0];
   } else {
-    editingRecord.value.record_date = formatDateForInput(new Date())
+      editingRecord.value.record_date_only = formatDateForInput(new Date()); // Fallback
   }
-  
-  // 确保健康记录的status字段始终是数组
-  if (type === 'health') {
-    // 如果status是字符串类型（来自API响应），将其转换为数组
+  // 删除旧的日期字段（如果存在）
+  delete editingRecord.value.record_date;
+  delete editingRecord.value.created_at;
+
+  // 确保 body_status 记录有 status, weight_kg, bmi 字段用于绑定
+  if (type === 'body_status') {
+    // 确保 status 是数组
     if (typeof editingRecord.value.status === 'string') {
-      editingRecord.value.status = [editingRecord.value.status];
-    } 
-    // 如果status不存在或不是数组，初始化为空数组
-    else if (!editingRecord.value.status || !Array.isArray(editingRecord.value.status)) {
-      editingRecord.value.status = [];
+      // 处理后端可能返回的逗号分隔字符串
+       editingRecord.value.status = editingRecord.value.status.split(',').map(s => s.trim()).filter(Boolean);
+    } else if (!Array.isArray(editingRecord.value.status)) {
+       editingRecord.value.status = []; // 初始化为空数组
     }
+     // 确保 weight_kg 和 bmi 存在且为 null 或数字，以便 v-model 正常工作
+     editingRecord.value.weight_kg = editingRecord.value.weight_kg ?? null;
+     editingRecord.value.bmi = editingRecord.value.bmi ?? null;
   }
-  
-  editingType.value = type
-  isEditDialogVisible.value = true
-}
+
+  editingType.value = type;
+  isEditDialogVisible.value = true;
+};
 
 // 保存编辑
 const saveEdit = async () => {
+  isSaving.value = true;
   try {
-    const recordToSave = { ...editingRecord.value }
-    if (recordToSave.record_date) {
-      recordToSave.record_date = recordToSave.record_date.split('T')[0]
+    const recordId = editingRecord.value?.id;
+    if (!recordId) {
+      ElMessage.error('无法获取记录ID，无法保存');
+      isSaving.value = false;
+      return;
     }
-    
-    // 确保健康记录的status字段是正确格式
-    if (editingType.value === 'health' && Array.isArray(recordToSave.status)) {
-      // 后端可能期望接收以字符串形式的status，取决于API设计
-      // 如果后端期望接收字符串，则将数组转为逗号分隔的字符串
-      // recordToSave.status = recordToSave.status.join(',')
-      
-      // 或者确保它是干净的数组（移除任何空值）
-      recordToSave.status = recordToSave.status.filter(Boolean)
+
+    const recordToSave = { ...editingRecord.value };
+
+    let payload = {
+      record_date: recordToSave.record_date_only || recordToSave.record_date?.split('T')[0] || formatDateForInput(new Date()),
+      note: recordToSave.note || null
+    };
+
+    let apiCallPromise = null;
+
+    if (editingType.value === 'food') {
+      payload = {
+        ...payload,
+        meal_time: recordToSave.meal_time,
+        food_name: recordToSave.food_name,
+        type: 'food'
+      };
+      apiCallPromise = api.put(`/records/${recordId}`, payload);
+
+    } else if (editingType.value === 'exercise') {
+      payload = {
+        ...payload,
+        exercise_type: recordToSave.exercise_type,
+        duration: parseInt(recordToSave.duration) || 0,
+        intensity: recordToSave.intensity || 'medium',
+        type: 'exercise'
+      };
+      apiCallPromise = api.put(`/records/${recordId}`, payload);
+
+    } else if (editingType.value === 'mood') {
+      payload = {
+        ...payload,
+        mood_type: recordToSave.mood_type,
+        type: 'mood'
+      };
+      apiCallPromise = api.put(`/records/${recordId}`, payload);
+
+    } else if (editingType.value === 'body_status') {
+      const statusArray = Array.isArray(recordToSave.status) ? recordToSave.status.filter(Boolean) : [];
+
+      payload = {
+        ...payload,
+        feeling: recordToSave.feeling || null,
+        status: statusArray.length > 0 ? statusArray : null,
+        type: 'body_status'
+      };
+
+      const weight = parseFloat(recordToSave.weight_kg);
+      const bmi = parseFloat(recordToSave.bmi);
+      if (!isNaN(weight) && weight !== null) {
+        payload.weight_kg = weight;
+      }
+      if (!isNaN(bmi) && bmi !== null) {
+        payload.bmi = bmi;
+      }
+      apiCallPromise = api.put(`/records/${recordId}`, payload);
+
+    } else {
+      console.error(`未知的编辑类型: ${editingType.value}`);
+      ElMessage.error('未知的记录类型，无法保存');
+      isSaving.value = false;
+      return;
     }
-    
-    const updateFunctions = {
-      food: updateFoodRecord,
-      exercise: updateExerciseRecord,
-      mood: updateMoodRecord,
-      health: updateHealthRecord
+
+    if (apiCallPromise) {
+      await apiCallPromise;
+      ElMessage.success('记录已更新');
+      isEditDialogVisible.value = false;
+      await fetchRecords(selectedDays.value);
+      window.dispatchEvent(new CustomEvent('recordUpdated'));
     }
-    
-    const updateFunction = updateFunctions[editingType.value]
-    if (!updateFunction) {
-      throw new Error(`Unknown record type: ${editingType.value}`)
-    }
-    
-    const response = await updateFunction(recordToSave.id, recordToSave)
-    if (response.status === 200) {
-      alert('记录已更新')
-      isEditDialogVisible.value = false
-      fetchRecords(selectedDays.value)
-      
-      // 触发记录更新事件，以便报告页面刷新数据
-      window.dispatchEvent(new CustomEvent('recordUpdated'))
-    }
+
   } catch (error) {
-    console.error('更新记录失败:', error)
-    alert('更新记录失败，请重试')
+    console.error('更新记录失败:', error);
+    const errorMsg = error.response?.data?.message || '更新记录失败，请重试';
+    ElMessage.error(errorMsg);
+  } finally {
+    isSaving.value = false;
   }
-}
+};
 
 // 删除确认
 const confirmDelete = (id, type) => {
@@ -1036,119 +1118,71 @@ const healthStatus = [
 
 // 保存新记录
 const saveNewRecord = async () => {
+  isSaving.value = true;
   try {
-    let isValid = true
-    let errorMessage = ''
+    let isValid = true;
+    let errorMessage = '';
 
-    // 验证表单
-    if (selectedRecordType.value === 'food') {
-      if (!editingRecord.value.food_name) {
-        isValid = false
-        errorMessage = '请输入食物名称'
-      }
-      if (!editingRecord.value.meal_time) {
-        isValid = false
-        errorMessage = '请选择用餐时间'
-      }
-    } else if (selectedRecordType.value === 'exercise') {
-      if (!editingRecord.value.exercise_type) {
-        isValid = false
-        errorMessage = '请选择运动类型'
-      } else if (!editingRecord.value.duration) {
-        isValid = false
-        errorMessage = '请输入运动时长'
-      } else if (!editingRecord.value.intensity) {
-        isValid = false
-        errorMessage = '请选择运动强度'
-      }
-    } else if (selectedRecordType.value === 'mood') {
-      if (!editingRecord.value.mood_type) {
-        isValid = false
-        errorMessage = '请选择心情类型'
-      }
-    } else if (selectedRecordType.value === 'health') {
-      if (!editingRecord.value.feeling) {
-        isValid = false
-        errorMessage = '请选择身体感受'
-      }
+    if (selectedRecordType.value === 'food' && (!editingRecord.value.food_name || !editingRecord.value.meal_time)) {
+      isValid = false; errorMessage = '请填写用餐时间和食物名称';
+    } else if (selectedRecordType.value === 'exercise' && (!editingRecord.value.exercise_type || !editingRecord.value.duration || !editingRecord.value.intensity)) {
+      isValid = false; errorMessage = '请填写运动类型、时长和强度';
+    } else if (selectedRecordType.value === 'mood' && !editingRecord.value.mood_type) {
+      isValid = false; errorMessage = '请选择心情类型';
+    } else if (selectedRecordType.value === 'body_status' && !editingRecord.value.feeling) {
+      // 身体感受可能非必需，根据需求调整验证
+      // isValid = false; errorMessage = '请选择身体感受';
+    } else if (!selectedRecordType.value) {
+        isValid = false; errorMessage = '未选择记录类型';
     }
 
     if (!isValid) {
-      alert(errorMessage)
-      return
+      ElMessage.warning(errorMessage);
+      isSaving.value = false;
+      return;
     }
 
-    // 将record_date转换为created_at
-    const recordToSave = { ...editingRecord.value }
-    if (recordToSave.record_date) {
-      recordToSave.record_date = recordToSave.record_date.split('T')[0]
+    const recordToSave = { ...editingRecord.value };
+    let payload = {
+      type: selectedRecordType.value,
+      record_date: recordToSave.record_date || formatDateForInput(new Date()),
+      note: recordToSave.note || null,
+    };
+
+    if (selectedRecordType.value === 'food') {
+        payload = { ...payload, food_name: recordToSave.food_name, meal_time: recordToSave.meal_time };
+    } else if (selectedRecordType.value === 'exercise') {
+        payload = { ...payload, exercise_type: recordToSave.exercise_type, duration: parseInt(recordToSave.duration) || 0, intensity: recordToSave.intensity };
+    } else if (selectedRecordType.value === 'mood') {
+        payload = { ...payload, mood_type: recordToSave.mood_type };
+    } else if (selectedRecordType.value === 'body_status') {
+        const statusArray = Array.isArray(recordToSave.status) ? recordToSave.status.filter(Boolean) : [];
+        payload = { ...payload, feeling: recordToSave.feeling || null, status: statusArray.length > 0 ? statusArray : null };
+        const weight = parseFloat(recordToSave.weight_kg);
+        const bmi = parseFloat(recordToSave.bmi);
+        if (!isNaN(weight) && weight !== null) payload.weight_kg = weight;
+        if (!isNaN(bmi) && bmi !== null) payload.bmi = bmi;
     }
 
-    console.log('保存记录，类型:', selectedRecordType.value, '数据:', recordToSave)
-    
-    let response
-    
-    // 尝试使用fetch直接提交
-    try {
-      const token = userStore.state.token
-      console.log('使用fetch直接提交，token:', token)
-      
-      // 使用相对路径，避免硬编码端口
-      const fetchResponse = await fetch('/api/records', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : ''
-        },
-        body: JSON.stringify({ 
-          type: selectedRecordType.value, 
-          ...recordToSave 
-        })
-      })
-      
-      if (!fetchResponse.ok) {
-        throw new Error(`HTTP错误: ${fetchResponse.status}`)
-      }
-      
-      response = await fetchResponse.json()
-      console.log('fetch响应:', response)
-    } catch (fetchError) {
-      console.error('fetch错误:', fetchError)
-      
-      // 如果fetch失败，尝试使用API函数
-      console.log('尝试使用API函数')
-      const createFunctions = {
-        food: createFoodRecord,
-        exercise: createExerciseRecord,
-        mood: createMoodRecord,
-        health: createHealthRecord
-      }
-      
-      response = await createFunctions[selectedRecordType.value](recordToSave)
-    }
-    
-    console.log('保存记录响应:', response)
-    
-    // 检查响应是否有效
-    if (response && (response.id || response.success)) {
-      // 先显示提醒
-      alert('记录添加成功！')
-      // 然后刷新数据
-      await fetchRecords(selectedDays.value)
-      // 触发记录更新事件
-      window.dispatchEvent(new Event('recordUpdated'))
-      // 最后关闭对话框
-      isAddDialogVisible.value = false
-      selectedRecordType.value = null
-      editingRecord.value = {}
-    } else {
-      alert(response?.message || '保存记录失败')
-    }
+    console.log('保存新记录，Payload:', payload);
+
+    const response = await api.post('/records', payload);
+
+    console.log('保存记录响应:', response);
+
+    ElMessage.success('记录添加成功！');
+    await fetchRecords(selectedDays.value);
+    window.dispatchEvent(new Event('recordUpdated'));
+    closeAddDialog();
+
   } catch (error) {
-    console.error('保存记录失败:', error)
-    alert('保存记录失败，请重试: ' + (error.message || '未知错误'))
+    console.error('保存新记录失败:', error);
+    const errorMsg = error.response?.data?.message || '保存记录失败，请重试';
+    ElMessage.error(errorMsg);
+  } finally {
+      isSaving.value = false;
   }
-}
+};
 
 // 日期相关计算
 const today = computed(() => formatDateForInput(new Date()))

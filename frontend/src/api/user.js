@@ -32,10 +32,7 @@ export function updateUsername(username) {
 }
 
 // 上传用户头像
-export function uploadAvatar(file) {
-  const formData = new FormData()
-  formData.append('avatar', file)
-  
+export function uploadAvatar(formData) {
   return api.post('/user/avatar', formData, {
     headers: {
       'Content-Type': 'multipart/form-data'

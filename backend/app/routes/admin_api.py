@@ -167,7 +167,7 @@ def update_food_item(item_id):
                 item.is_recommended = data['is_recommended']
             else:
                  return jsonify({'success': False, 'message': 'is_recommended 必须是布尔值 (true/false)'}), 400
-
+                            
         db.session.commit()
         return jsonify({
             'success': True,
@@ -316,7 +316,7 @@ def update_user(user_id):
             new_role = data['role']
             if new_role not in allowed_roles:
                 return jsonify({'success': False, 'message': f'无效的角色: {new_role}。允许的角色: {allowed_roles}'}), 400
-                
+                                            
             # 安全检查：不允许管理员修改自己的角色
             if user_id == current_admin_id and user_to_update.role != new_role:
                  return forbidden('不允许修改自己的角色')
@@ -452,7 +452,7 @@ def create_user():
     allowed_roles = ['user', 'admin']
     if role not in allowed_roles:
         return jsonify({'success': False, 'message': f'无效的角色: {role}。允许的角色: {allowed_roles}'}), 400
-
+                            
     # 检查用户名和邮箱是否已存在
     if User.query.filter_by(username=username).first():
         return jsonify({'success': False, 'message': f'用户名 "{username}" 已被使用'}), 409 # Conflict
@@ -660,4 +660,5 @@ def respond_to_advice_request(request_id):
 
 # --- 其他管理员接口将在这里添加 ---
 # (User management endpoints)
-# (Recommendation endpoints) 
+# (Recommendation endpoints)
+

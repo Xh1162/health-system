@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timedelta
 
-from ..models import db, Record, HealthStatus
+from ..models import db, Record
 from ..utils.errors import bad_request, not_found
 
 records_bp = Blueprint('records', __name__)

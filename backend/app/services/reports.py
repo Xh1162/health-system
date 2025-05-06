@@ -355,16 +355,110 @@ class ReportService:
             return '保持稳定'
 
     @staticmethod
-    def get_recent_reports(user_id, limit=3):
-        """获取最近的报告
-        
+    def generate_report_data(user_id, days=30):
+        """为指定用户生成报告数据 JSON"
+
         Args:
             user_id: 用户ID
-            limit: 获取的报告数量限制
-            
+            days: 分析的天数，默认30天
+
         Returns:
-            list: 报告列表
+            dict: 包含报告关键数据的字典，用于存储在 Report.report_data
+                  返回 None 表示无法生成 (例如数据不足)
         """
+        print(f"开始为用户 {user_id} 生成报告数据 (最近 {days} 天)")
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+
+        # 1. 获取所需的所有原始记录
+        user_records = Record.query.filter(
+            Record.user_id == user_id,
+            Record.record_date >= start_date,
+            Record.record_date < end_date # 通常不包含当天
+        ).order_by(Record.record_date.asc()).all()
+
+        if not user_records:
+            print(f"用户 {user_id} 在指定时间内没有记录，无法生成报告数据")
+            return None # 没有足够数据
+
+        # 2. 初始化报告数据字典
+        report_data = {
+            'bmi': None,
+            'calorie_goal': 2000, # 示例：固定值
+            'average_intake': None, # 需要食物记录和热量数据，暂不计算
+            'macros': None,        # 需要食物记录和营养数据，暂不计算
+            'key_findings': [],
+            'exercise_minutes_total': 0,
+            'mood_distribution': {},
+            'weight_trend': [] # 存储 {date: YYYY-MM-DD, value: weight}
+        }
+
+        # 3. 分析记录并填充报告数据
+        mood_counts = {}
+        total_duration = 0
+        weight_data_points = []
+
+        for record in user_records:
+            # 提取体重数据
+            if record.type == 'body_status' and record.weight_kg is not None:
+                weight_data_points.append({
+                    'date': record.record_date.strftime('%Y-%m-%d'),
+                    'value': record.weight_kg
+                })
+                # 使用最后一次体重计算 BMI (如果身高信息可用，否则暂存体重)
+                # 假设身高信息在 UserProfile, 需要额外查询，这里简化
+                # 暂且将最后体重放入bmi字段示意
+                report_data['bmi'] = record.weight_kg 
+
+            # 统计运动时长
+            elif record.type == 'exercise' and record.duration is not None:
+                total_duration += record.duration
+
+            # 统计心情
+            elif record.type == 'mood' and record.mood_type:
+                mood = record.mood_type.lower()
+                mood_counts[mood] = mood_counts.get(mood, 0) + 1
+
+        # 整理体重趋势数据 (去重，保留每天最后一条)
+        unique_weight_trend = {}
+        for dp in weight_data_points:
+            unique_weight_trend[dp['date']] = dp['value']
+        report_data['weight_trend'] = sorted([{'date': d, 'value': v} for d, v in unique_weight_trend.items()], key=lambda x: x['date'])
+        # 更新 BMI (取最后一次体重，假设身高1.75m作为示例)
+        if report_data['weight_trend']:
+            last_weight = report_data['weight_trend'][-1]['value']
+            height_m = 1.75 # 示例身高，实际应从 UserProfile 获取
+            if last_weight and height_m:
+                 report_data['bmi'] = round(last_weight / (height_m ** 2), 1)
+
+        # 整理运动数据
+        report_data['exercise_minutes_total'] = total_duration
+        avg_daily_exercise = total_duration / days if days > 0 else 0
+        if avg_daily_exercise < 30:
+            report_data['key_findings'].append("平均每日运动时长不足30分钟，建议增加运动量。")
+        else:
+            report_data['key_findings'].append("每日运动时长充足，请继续保持。")
+
+        # 整理心情数据
+        total_moods = sum(mood_counts.values())
+        if total_moods > 0:
+            report_data['mood_distribution'] = {mood: round((count / total_moods) * 100) 
+                                               for mood, count in mood_counts.items()}
+            # 添加心情相关建议 (示例)
+            positive_moods = mood_counts.get('happy', 0) + mood_counts.get('excited', 0) + mood_counts.get('calm', 0)
+            if (positive_moods / total_moods) < 0.5:
+                 report_data['key_findings'].append("近期积极情绪占比较低，请关注心理健康，尝试放松活动。")
+
+        # 添加默认发现（如果没触发特定规则）
+        if not report_data['key_findings']:
+            report_data['key_findings'].append("整体健康状况平稳，请继续保持记录习惯。")
+
+        print(f"为用户 {user_id} 生成的报告数据: {report_data}")
+        return report_data
+
+    @staticmethod
+    def get_recent_reports(user_id, limit=3):
+        """获取用户最近生成的报告列表"""
         # 这个方法在用户仪表板中被调用
         # 返回一个空列表，实际实现会查询数据库
         return [] 

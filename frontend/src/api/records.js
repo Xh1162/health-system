@@ -48,22 +48,6 @@ export function createMoodRecord(data) {
     })
 }
 
-// 创建健康状况记录
-export function createHealthRecord(data) {
-  console.log('创建健康状况记录，数据:', data)
-  
-  // 直接使用axios
-  return api.post('/records', { type: 'health', ...data })
-    .then(response => {
-      console.log('创建健康状况记录成功:', response)
-      return response
-    })
-    .catch(error => {
-      console.error('创建健康状况记录失败:', error)
-      throw error
-    })
-}
-
 // 获取所有记录
 export function getAllRecords(days = 7) {
   console.log('获取所有记录，天数:', days)
@@ -136,20 +120,6 @@ export function updateMoodRecord(id, data) {
     })
     .catch(error => {
       console.error('更新心情记录失败:', error)
-      throw error
-    })
-}
-
-// 更新健康状况记录
-export function updateHealthRecord(id, data) {
-  console.log('更新健康状况记录，ID:', id, '数据:', data)
-  return api.put(`/records/${id}`, { type: 'health', ...data })
-    .then(response => {
-      console.log('更新健康状况记录成功:', response)
-      return response
-    })
-    .catch(error => {
-      console.error('更新健康状况记录失败:', error)
       throw error
     })
 }

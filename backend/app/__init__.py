@@ -6,6 +6,11 @@ from flask_migrate import Migrate
 from config import config
 from datetime import timedelta
 from .models import db
+from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # 初始化扩展
 jwt = JWTManager()
@@ -23,9 +28,14 @@ def create_app(test_config=None):
     """
     app = Flask(__name__, instance_relative_config=True)
     
+    # Load configuration from config.py
+    app.config.from_object('config.Config')
+    
     # 配置数据库
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///health_system.db')
+    # !!! 注释掉下面这行，让配置从 config.py 加载 !!!
+    # app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///health_system.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_ECHO'] = True  # Add SQLALCHEMY_ECHO = True for debugging SQL queries
     
     # 配置JWT
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'dev-secret-key')
@@ -101,6 +111,8 @@ def create_app(test_config=None):
     from .routes.admin import admin_bp
     from .routes.admin_api import admin_api_bp
     from .routes.suggestions import suggestions_bp
+    from .routes.advice import advice_bp
+    from .routes.admin_advice import admin_advice_bp
     
     # 注册蓝图
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -110,6 +122,8 @@ def create_app(test_config=None):
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(admin_api_bp)
     app.register_blueprint(suggestions_bp, url_prefix='/api/suggestions')
+    app.register_blueprint(advice_bp, url_prefix='/api/advice-requests')
+    app.register_blueprint(admin_advice_bp)
     
     # 配置前端静态文件
     frontend_dist_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend/dist')
@@ -153,10 +167,11 @@ def create_app(test_config=None):
     with app.app_context():
         # 按照依赖关系顺序导入模型
         from .models.user import User, UserProfile
-        from .models.record import Record, HealthStatus
+        from .models.record import Record
         from .models.report import Report, Recommendation
         from .models.admin import SystemSetting, Announcement, ActivityLog
         from .models.manual_suggestion import ManualSuggestion
+        from .models.food import FoodItem
         
         # 创建表
         db.create_all()

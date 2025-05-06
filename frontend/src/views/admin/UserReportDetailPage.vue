@@ -1,77 +1,59 @@
 <template>
   <div class="user-report-detail-page">
     <div class="page-header">
-      <h2>用户健康报告详情</h2>
-      <p class="subtitle">查看用户 {{ userId }} 的详细健康报告</p>
+      <h2>用户健康趋势</h2>
+      <p class="subtitle">查看用户 {{ userId }} 的健康趋势数据</p>
       <button @click="goBack" class="back-button">返回用户列表</button>
     </div>
 
     <div v-if="loading" class="loading-container">
       <div class="spinner"></div>
-      <p>加载报告中...</p>
+      <p>加载趋势数据中...</p>
     </div>
 
     <div v-else-if="error" class="error-container">
       <div class="error-icon">❌</div>
-      <h3>加载报告失败</h3>
-      <p>{{ error }}</p>
-      <button class="retry-button" @click="fetchUserReport">重试</button>
+      <h3>加载趋势数据失败</h3>
+      <p>{{ errorMessage }}</p>
+      <button @click="fetchUserTrends" class="retry-button">
+        重试加载
+      </button>
     </div>
 
-    <div v-else-if="reportData" class="report-content">
-      <h3>{{ reportData.userName || '用户' }} 的健康报告</h3>
-      <p class="report-meta">报告 ID: {{ reportData.report_id || 'N/A' }} | 生成时间: {{ formatDate(reportData.generated_at) }}</p>
-
-      <div class="report-grid">
-        <!-- Key Metrics Card -->
-        <div class="report-card">
-          <h4>关键指标</h4>
-          <div class="metric-item">
-            <span class="metric-label">BMI:</span>
-            <span class="metric-value">{{ reportData.bmi || 'N/A' }}</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">目标热量:</span>
-            <span class="metric-value">{{ reportData.calorie_goal || 'N/A' }} kcal</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">平均摄入:</span>
-            <span class="metric-value">{{ reportData.average_intake || 'N/A' }} kcal</span>
-          </div>
-        </div>
-
-        <!-- Macros Card -->
-        <div class="report-card">
-          <h4>宏量营养素 (平均)</h4>
-          <div v-if="reportData.macros" class="macros-details">
-            <div class="metric-item">
-              <span class="metric-label">蛋白质:</span>
-              <span class="metric-value">{{ reportData.macros.protein || 'N/A' }} g</span>
-            </div>
-            <div class="metric-item">
-              <span class="metric-label">碳水化合物:</span>
-              <span class="metric-value">{{ reportData.macros.carbs || 'N/A' }} g</span>
-            </div>
-            <div class="metric-item">
-              <span class="metric-label">脂肪:</span>
-              <span class="metric-value">{{ reportData.macros.fat || 'N/A' }} g</span>
-            </div>
-          </div>
-          <p v-else class="no-data-small">无宏量营养素数据</p>
-        </div>
-
-        <!-- Key Findings Card -->
-        <div class="report-card full-width">
-          <h4>主要发现</h4>
-          <ul v-if="reportData.key_findings && reportData.key_findings.length > 0" class="findings-list">
-            <li v-for="(finding, index) in reportData.key_findings" :key="index">{{ finding }}</li>
-          </ul>
-          <p v-else class="no-data-small">无主要发现</p>
-        </div>
+    <div v-else-if="trendsData" class="trends-content">
+      
+      <div class="trend-data-container">
+        <h4>体重趋势 (kg)</h4>
+        <ul v-if="formattedWeightData.datasets[0].data.length > 0" class="data-list">
+          <li v-for="(label, index) in formattedWeightData.labels" :key="'weight-' + index">
+            <span class="date">{{ formatDate(label) }}:</span> 
+            <span class="value">{{ formattedWeightData.datasets[0].data[index] }} kg</span>
+          </li>
+        </ul>
+        <p v-else class="no-data-small">无体重数据</p>
+      </div>
+      
+      <div class="trend-data-container">
+        <h4>运动时长趋势 (分钟)</h4>
+        <ul v-if="formattedExerciseData.datasets[0].data.length > 0" class="data-list">
+           <li v-for="(label, index) in formattedExerciseData.labels" :key="'exercise-' + index">
+            <span class="date">{{ formatDate(label) }}:</span> 
+            <span class="value">{{ formattedExerciseData.datasets[0].data[index] }} 分钟</span>
+          </li>
+        </ul>
+        <p v-else class="no-data-small">无运动时长数据</p>
       </div>
 
-      <!-- 在这里添加更详细的报告展示逻辑 -->
-      <!-- 例如：图表等 -->
+      <div class="trend-data-container">
+        <h4>心情分布 (最近30天)</h4>
+        <div v-if="Object.keys(moodStatistics).length > 0" class="statistics-list">
+          <div v-for="(count, mood) in moodStatistics" :key="mood" class="statistic-item">
+            <span class="mood-label">{{ mood }}:</span> 
+            <span class="mood-count">{{ count }} 次</span>
+          </div>
+        </div>
+        <p v-else class="no-data-small">无心情数据</p>
+      </div>
 
       <div class="admin-recommendations">
         <h4>管理员建议</h4>
@@ -84,17 +66,13 @@
       </div>
     </div>
 
-    <div v-else class="no-data">
-      <p>未能找到该用户的报告数据。</p>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-// 假设有一个获取特定用户报告的API函数
-import { getUserReportById, submitAdminRecommendation } from '../../api/admin'; // 需要创建这些API函数
+import { getUserTrendsForAdmin, submitAdminRecommendation } from '../../api/admin';
 
 const props = defineProps({
   userId: {
@@ -104,43 +82,98 @@ const props = defineProps({
 });
 
 const router = useRouter();
-const reportData = ref(null);
+const trendsData = ref(null);
 const loading = ref(true);
 const error = ref(null);
+const errorCode = ref(null);
 const adminRecommendation = ref('');
 const submittingRecommendation = ref(false);
 const recommendationSuccess = ref(false);
 const recommendationError = ref(null);
 
-const fetchUserReport = async () => {
+const errorMessage = computed(() => {
+  return error.value?.message || '加载趋势数据时发生未知错误。';
+});
+
+const fetchUserTrends = async () => {
   loading.value = true;
   error.value = null;
+  errorCode.value = null;
+  trendsData.value = null;
   try {
-    // 调用API获取特定用户的报告数据
-    // 注意：getUserReportById 需要在后端实现，并在 frontend/src/api/admin.js 中定义
-    const data = await getUserReportById(props.userId);
-    reportData.value = data;
-    // 从获取的数据中加载已有的管理员建议到 textarea
-    adminRecommendation.value = data.admin_recommendation || '';
+    const data = await getUserTrendsForAdmin(props.userId);
+    trendsData.value = data;
   } catch (err) {
-    console.error(`获取用户 ${props.userId} 的报告失败:`, err);
-    error.value = err.response?.data?.message || err.message || '加载报告时发生未知错误。';
+    console.error(`获取用户 ${props.userId} 的趋势数据失败:`, err);
+    error.value = err;
+    errorCode.value = err.response?.status;
   } finally {
     loading.value = false;
   }
 };
+
+const formatLineChartData = (rawData, label, color) => {
+  const defaultDataset = { 
+    label: label || '', 
+    data: [], 
+    borderColor: color || '#3b82f6', 
+    backgroundColor: color ? `${color}33` : '#3b82f633', 
+    tension: 0.1, 
+    fill: false 
+  };
+  if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
+      return { labels: [], datasets: [defaultDataset] }; 
+  }
+  try {
+      const validData = rawData.filter(item => item && item.date !== undefined && item.value !== undefined);
+      validData.sort((a, b) => new Date(a.date) - new Date(b.date));
+      const labels = validData.map(item => item.date);
+      const data = validData.map(item => item.value);
+      return {
+        labels,
+        datasets: [{ ...defaultDataset, data }]
+      };
+  } catch (e) {
+      console.error("Error formatting chart data:", e, rawData);
+      return { labels: [], datasets: [defaultDataset] }; 
+  }
+};
+
+const formattedWeightData = computed(() => {
+  if (!trendsData.value) {
+      return { labels: [], datasets: [{ label: '体重 (kg)', data: [] }] };
+  }
+  return formatLineChartData(trendsData.value.weight_kg, '体重 (kg)', '#3b82f6');
+});
+
+const formattedExerciseData = computed(() => {
+  if (!trendsData.value) {
+      return { labels: [], datasets: [{ label: '运动时长 (分钟)', data: [] }] };
+  }
+  return formatLineChartData(trendsData.value.exercise_duration, '运动时长 (分钟)', '#10b981');
+});
+
+const moodStatistics = computed(() => {
+  if (!trendsData.value || !trendsData.value.mood || trendsData.value.mood.length === 0) {
+    return {};
+  }
+  
+  return trendsData.value.mood.reduce((stats, moodEntry) => {
+    const moodValue = moodEntry.value;
+    if (moodValue) {
+      stats[moodValue] = (stats[moodValue] || 0) + 1;
+    }
+    return stats;
+  }, {});
+});
 
 const submitRecommendation = async () => {
   submittingRecommendation.value = true;
   recommendationSuccess.value = false;
   recommendationError.value = null;
   try {
-    // 调用API提交管理员建议
-    // 注意：submitAdminRecommendation 需要在后端实现，并在 frontend/src/api/admin.js 中定义
     await submitAdminRecommendation(props.userId, adminRecommendation.value);
     recommendationSuccess.value = true;
-    // 可选：提交成功后重新获取报告数据以更新显示
-    // await fetchUserReport();
   } catch (err) {
     console.error(`为用户 ${props.userId} 提交建议失败:`, err);
     recommendationError.value = err.response?.data?.message || err.message || '提交建议时发生未知错误。';
@@ -150,24 +183,22 @@ const submitRecommendation = async () => {
 };
 
 const goBack = () => {
-  // 返回到之前的用户列表页面
   router.push({ name: 'AdminUserReports' });
 };
 
-// 新增日期格式化函数
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
   try {
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    const options = { year: 'numeric', month: '2-digit', day: '2-digit' }; 
     return new Date(dateString).toLocaleDateString('zh-CN', options);
   } catch (e) {
     console.error('日期格式化错误:', e);
-    return dateString; // 返回原始字符串以防出错
+    return dateString;
   }
 };
 
 onMounted(() => {
-  fetchUserReport();
+  fetchUserTrends();
 });
 </script>
 
@@ -197,11 +228,10 @@ onMounted(() => {
 .subtitle {
   color: #64748b;
   font-size: 0.95rem;
-  margin: 0; /* Removed default margin */
-  flex-grow: 1; /* Allow subtitle to take space */
-  margin-left: 1rem; /* Add some space from title */
+  margin: 0;
+  flex-grow: 1;
+  margin-left: 1rem;
 }
-
 
 .back-button {
   background: #64748b;
@@ -218,8 +248,7 @@ onMounted(() => {
   background: #475569;
 }
 
-/* Loading and Error Styles (similar to UserReportsPage) */
-.loading-container, .error-container, .no-data {
+.loading-container, .error-container {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -254,13 +283,13 @@ onMounted(() => {
   color: #ef4444;
 }
 
-.error-container h3, .no-data h3 {
+.error-container h3 {
   color: #ef4444;
   font-size: 1.2rem;
   margin-bottom: 0.5rem;
 }
 
-.error-container p, .no-data p {
+.error-container p {
   color: #64748b;
   margin-bottom: 1.5rem;
 }
@@ -280,89 +309,61 @@ onMounted(() => {
   background: #2563eb;
 }
 
-/* Report Content */
-.report-content {
+.trends-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.trend-data-container {
   background: white;
   padding: 1.5rem;
   border-radius: 0.5rem;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  margin-top: 1rem;
-}
-
-.report-content h3 {
-  font-size: 1.4rem; /* Slightly larger title */
-  color: #1e293b;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 0.75rem;
-}
-
-.report-meta {
-  font-size: 0.85rem;
-  color: #64748b;
-  margin-bottom: 1.5rem;
-}
-
-.report-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
-}
-
-.report-card {
-  background-color: #ffffff;
-  border-radius: 0.5rem;
-  padding: 1.25rem;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   border: 1px solid #e2e8f0;
+  display: flex; 
+  flex-direction: column;
 }
 
-.report-card.full-width {
-  grid-column: 1 / -1; /* Make findings card span full width */
-}
-
-.report-card h4 {
+.trend-data-container h4 {
   font-size: 1.1rem;
   color: #334155;
   margin-top: 0;
   margin-bottom: 1rem;
-  border-bottom: 1px solid #f1f5f9;
   padding-bottom: 0.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
 }
 
-.metric-item {
+.data-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 0.9rem;
+}
+
+.data-list li {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.6rem;
-  font-size: 0.95rem;
+  padding: 0.4rem 0.2rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.metric-label {
-  color: #475569;
-  font-weight: 500;
+.data-list li:last-child {
+  border-bottom: none;
 }
 
-.metric-value {
+.data-list .date {
+  color: #64748b;
+  margin-right: 1rem;
+}
+
+.data-list .value {
   color: #1e293b;
-  font-weight: 600;
-}
-
-.macros-details .metric-item:last-child,
-.metric-item:last-child {
-  margin-bottom: 0;
-}
-
-.findings-list {
-  list-style: disc;
-  padding-left: 1.5rem;
-  margin: 0;
-  color: #334155;
-  font-size: 0.95rem;
-}
-
-.findings-list li {
-  margin-bottom: 0.5rem;
+  font-weight: 500;
 }
 
 .no-data-small {
@@ -372,11 +373,41 @@ onMounted(() => {
   padding: 1rem 0;
 }
 
-/* Admin Recommendations Section */
+.statistics-list {
+  padding: 0.5rem 0.2rem;
+  font-size: 0.9rem;
+}
+
+.statistic-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.statistic-item:last-child {
+  border-bottom: none;
+}
+
+.mood-label {
+  color: #475569;
+  text-transform: capitalize;
+}
+
+.mood-count {
+  color: #1e293b;
+  font-weight: 500;
+}
+
 .admin-recommendations {
-  margin-top: 2rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e2e8f0;
+  grid-column: 1 / -1;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  border-top: none;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid #e2e8f0;
 }
 
 .admin-recommendations h4 {
@@ -393,11 +424,11 @@ onMounted(() => {
   border-radius: 0.375rem;
   font-size: 0.9rem;
   margin-bottom: 1rem;
-  resize: vertical; /* Allow vertical resizing */
+  resize: vertical;
 }
 
 .admin-recommendations button {
-  background: #10b981; /* Green color for submit */
+  background: #10b981;
   color: white;
   border: none;
   padding: 0.6rem 1.5rem;
@@ -408,7 +439,7 @@ onMounted(() => {
 }
 
 .admin-recommendations button:disabled {
-  background-color: #9ca3af; /* Gray out when disabled */
+  background-color: #9ca3af;
   cursor: not-allowed;
 }
 
@@ -426,5 +457,20 @@ onMounted(() => {
   color: #ef4444;
   font-size: 0.9rem;
   margin-top: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .trends-content {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .trends-content {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .admin-recommendations {
+      grid-column: 1 / -1;
+  }
 }
 </style> 

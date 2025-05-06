@@ -21,8 +21,8 @@ class FoodItem(db.Model):
             'description': self.description,
             'image_url': self.image_url,
             'is_recommended': self.is_recommended,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
 
     def __repr__(self):

@@ -466,25 +466,38 @@ const handleAvatarChange = async (event) => {
   if (file.size > 2 * 1024 * 1024) { ElMessage.error('图片大小不能超过2MB'); return; }
   
   loading.value = true
-  ElMessage.info('头像上传中...')
+  // Store the message instance
+  let loadingMessageInstance = null; 
   
   try {
+    // Show loading message and store the instance
+    loadingMessageInstance = ElMessage({ message: '头像上传中...', type: 'info', duration: 0 });
+      
     const formData = new FormData()
     formData.append('avatar', file)
     
-    const data = await userUploadAvatar(formData) // Use the API function
-    
-    if (data.avatar) {
-        userStore.updateAvatar(data.avatar) // updateAvatar ensures full URL
+    const data = await userUploadAvatar(formData) // data is the response body
+
+    // Check for 'avatar_url' field instead of 'avatar'
+    if (data.avatar_url) { 
+        // Close the loading message *before* showing success (optional, for cleaner look)
+        loadingMessageInstance?.close(); 
+        // Use data.avatar_url to update the store
+        userStore.updateAvatar(data.avatar_url)
         ElMessage.success('头像更新成功')
     } else {
-        throw new Error('服务器未返回头像地址')
+        // Keep the error message or adjust if needed
+        throw new Error('服务器返回的数据中缺少头像地址 (avatar_url)') 
     }
   } catch (error) {
     console.error('上传头像失败:', error)
     ElMessage.error(error.response?.data?.message || '头像上传失败')
   } finally {
       loading.value = false
+      // Explicitly close the specific loading message instance if it exists
+      loadingMessageInstance?.close();
+      // Remove ElMessage.closeAll() if it was here
+      
       // Reset file input to allow uploading the same file again if needed
       if (avatarInput.value) {
           avatarInput.value.value = ''

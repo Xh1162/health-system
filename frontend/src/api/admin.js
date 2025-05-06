@@ -109,4 +109,92 @@ export const respondToAdviceRequest = async (requestId, responseText) => {
      const errorMessage = error.response?.data?.message || error.message || '回复建议请求时发生网络或服务器错误';
     throw new Error(errorMessage);
   }
+};
+
+/**
+ * 触发后端为指定用户生成健康报告 (管理员权限)
+ * @param {string|number} userId 用户ID
+ * @returns {Promise<Object>} 后端返回的确认信息，可能包含新报告ID
+ */
+export const generateUserReport = async (userId) => {
+  if (!userId) {
+    throw new Error('生成报告需要提供用户ID');
+  }
+  try {
+    // 调用 POST 请求来触发报告生成
+    const response = await api.post(`/admin/users/${userId}/generate-report`);
+    // 检查后端是否明确返回了成功状态和消息
+    if (response && response.success) {
+      return response; // 可以返回包含 report_id 的响应
+    } else {
+      // 如果后端没有返回标准的 success 字段，但状态码是 201，也认为成功
+      // (axios 拦截器可能已经处理了数据，这里假设 response 是处理后的 data)
+      // 更好的做法是确保后端总是返回一致的 { success: true, ... } 结构
+      // 但为了兼容，我们先这样处理
+      if (response && !response.success && response.message) { // 假设后端返回了 { message: '...' }
+          console.warn('报告生成API未返回success=true，但有消息:', response.message);
+          // 也可以根据具体情况决定是否抛出错误
+          // throw new Error(response.message);
+      } else if (!response) {
+          console.warn('报告生成API未返回有效响应');
+          // throw new Error('报告生成API未返回有效响应');
+      }
+      // 即使没有明确的 success: true，只要没抛出 http 错误，也暂时认为触发成功
+      return response || { success: true, message: '报告生成请求已发送' }; 
+    }
+  } catch (error) {
+    console.error(`为用户 ${userId} 生成报告失败 (API):`, error.response || error.message);
+    // 抛出更具体的错误信息给前端组件
+    const errorMessage = error.response?.data?.message || error.message || '生成报告时发生未知错误';
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * 管理员获取指定用户的健康趋势数据
+ * @param {string|number} userId 用户ID
+ * @param {object} params 查询参数 (可选, e.g., { data_types: 'weight_kg,mood', start_date: 'YYYY-MM-DD', end_date: 'YYYY-MM-DD' })
+ * @returns {Promise<Object>} 包含趋势数据的对象
+ */
+export const getUserTrendsForAdmin = async (userId, params = {}) => {
+  if (!userId) {
+    throw new Error('获取用户趋势需要提供用户ID');
+  }
+  try {
+    // 将 params 对象转换为 URL 查询参数
+    const queryParams = new URLSearchParams(params).toString();
+    const url = `/admin/users/${userId}/trends${queryParams ? '?' + queryParams : ''}`;
+    const response = await api.get(url);
+    // 假设响应拦截器已处理，直接返回数据部分
+    if (response && response.success) {
+        return response.data; 
+    } else {
+        throw new Error(response?.message || '获取用户趋势数据失败');
+    }
+  } catch (error) {
+    console.error(`获取用户 ${userId} 趋势数据失败 (API):`, error.response || error.message);
+    const errorMessage = error.response?.data?.message || error.message || '获取用户趋势数据时发生未知错误';
+    throw new Error(errorMessage);
+  }
+};
+
+/**
+ * 获取食物推荐组合
+ * GET /api/admin/food-recommendations
+ */
+export const getFoodRecommendations = async () => {
+  try {
+    // 注意：因为我们在 admin_api_bp 下添加了路由，所以路径是 /admin/food-recommendations
+    // 如果您创建了独立的 food_api_bp (url_prefix='/api/foods'), 路径应改为 '/foods/recommendations'
+    const response = await api.get('/admin/food-recommendations'); 
+    if (response.data && response.data.success) {
+      return response.data.data; // 返回 { mainDish: {name: ..., category: ...}, ... }
+    } else {
+      throw new Error(response.data?.message || '无法获取食物推荐');
+    }
+  } catch (error) {
+    console.error('获取食物推荐API调用失败:', error.response?.data || error.message);
+    // 将错误传递给调用者处理
+    throw error;
+  }
 }; 

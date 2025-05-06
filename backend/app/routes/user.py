@@ -2,11 +2,13 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import uuid
+import random
+import traceback
 
-from ..models import db, User, UserProfile, Announcement
+from ..models import db, User, UserProfile, Announcement, FoodItem
 from ..utils.errors import ValidationError, AuthenticationError, bad_request, not_found
 
 user_bp = Blueprint('user', __name__)
@@ -258,4 +260,58 @@ def upload_avatar():
         'success': True,
         'message': '头像上传成功',
         'avatar_url': avatar_url
-    }) 
+    })
+
+@user_bp.route('/recommendations/food', methods=['GET'])
+def get_food_recommendations():
+    """获取随机的食物推荐组合 (从 is_recommended=True 的 FoodItem 中选取)"""
+    try:
+        # 定义需要的类别和前端模板中使用的键名
+        required_categories = {
+            'protein': 'mainDish',   # 假设 'protein' 类别对应主菜
+            'staple': 'stapleFood',  # 假设 'staple' 类别对应主食
+            'vegetable': 'vegetable', # 假设 'vegetable' 类别对应蔬菜
+            'fruit': 'fruit'        # 假设 'fruit' 类别对应水果
+            # 注意：这里的类别名称 ('protein', 'staple'...) 需要与数据库中 FoodItem.category 的实际值匹配
+        }
+
+        recommendations = {}
+        # 查询所有被标记为推荐的食物项
+        all_recommended_items = FoodItem.query.filter_by(is_recommended=True).all()
+
+        if not all_recommended_items:
+            # Return success=True but empty data, let frontend handle 'no recommendations'
+            return jsonify({'success': True, 'data': {}, 'message': '没有可推荐的食物项'}) 
+
+        # 按类别分组
+        items_by_category = {}
+        for item in all_recommended_items:
+            # Ensure item has category and to_dict method
+            if hasattr(item, 'category') and item.category and hasattr(item, 'to_dict'): 
+                if item.category not in items_by_category:
+                    items_by_category[item.category] = []
+                items_by_category[item.category].append(item.to_dict()) 
+            else:
+                 print(f"警告: 食物项 ID {item.id if hasattr(item, 'id') else '未知'} 缺少 category 或 to_dict 方法，已跳过。")
+
+
+        # 为每个需要的类别随机选择一个
+        for db_category, key_name in required_categories.items():
+            if db_category in items_by_category and items_by_category[db_category]:
+                recommendations[key_name] = random.choice(items_by_category[db_category])
+            else:
+                # 如果某个类别没有推荐项，设置为 None
+                recommendations[key_name] = None
+                print(f"警告：类别 '{db_category}' 中没有找到可推荐的食物项。")
+
+        # 返回成功响应
+        return jsonify({
+            'success': True,
+            'data': recommendations # 返回 {mainDish: {...}, stapleFood: {...}, ...} 结构
+        })
+
+    except Exception as e:
+        print(f"获取食物推荐时出错: {e}")
+        traceback.print_exc()
+        # Return a generic error message
+        return jsonify({'success': False, 'message': '获取食物推荐时发生内部错误'}), 500 
