@@ -76,21 +76,24 @@
               <i class="fas fa-lightbulb"></i> 获取推荐
             </span>
           </button>
-          <div v-if="recommendationError" class="error-message">
-            <i class="fas fa-exclamation-triangle"></i> {{ recommendationError }}
+          <!-- Wrapper div to control visibility of results area -->
+          <div v-if="showRecommendationResultsArea">
+            <div v-if="recommendationError" class="error-message">
+              <i class="fas fa-exclamation-triangle"></i> {{ recommendationError }}
+            </div>
+            <div v-if="!isLoadingRecommendations && recommendations.length > 0" class="recommendation-list">
+               <h4>今日推荐食谱：</h4>
+               <ul>
+                 <li v-for="(item, index) in recommendations" :key="index">
+                    <strong>{{ item.meal_time }}:</strong> {{ item.content }}
+                    <small v-if="item.calories"> (约 {{ item.calories }} kcal)</small>
+                 </li>
+               </ul>
+            </div>
+            <div v-if="!isLoadingRecommendations && recommendations.length === 0 && !recommendationError && recommendationFetched" class="no-recommendations">
+               <p><i class="fas fa-info-circle"></i> 暂时没有获取到推荐，请稍后再试或检查您的个人信息设置。</p>
+             </div>
           </div>
-          <div v-if="!isLoadingRecommendations && recommendations.length > 0" class="recommendation-list">
-             <h4>今日推荐食谱：</h4>
-             <ul>
-               <li v-for="(item, index) in recommendations" :key="index">
-                  <strong>{{ item.meal_time }}:</strong> {{ item.content }}
-                  <small v-if="item.calories"> (约 {{ item.calories }} kcal)</small>
-               </li>
-             </ul>
-          </div>
-          <div v-if="!isLoadingRecommendations && recommendations.length === 0 && !recommendationError && recommendationFetched" class="no-recommendations">
-             <p><i class="fas fa-info-circle"></i> 暂时没有获取到推荐，请稍后再试或检查您的个人信息设置。</p>
-           </div>
        </section>
        <!-- ====== 食物推荐区域结束 ====== -->
 
@@ -401,23 +404,40 @@ const recommendations = ref([]);
 const isLoadingRecommendations = ref(false);
 const recommendationError = ref(null);
 const recommendationFetched = ref(false); // Track if fetch was attempted
+const showRecommendationResultsArea = ref(false); // New state variable
 
 const fetchRecommendations = async () => {
+  showRecommendationResultsArea.value = true; // Show the results area when fetch begins
   isLoadingRecommendations.value = true;
   recommendationError.value = null;
   recommendationFetched.value = true; // Mark fetch as attempted
   recommendations.value = []; // Clear previous recommendations
 
   try {
-    // Assume the backend endpoint is '/recommendations/food'
-    const response = await axiosInstance.get('/recommendations/food');
-
-    if (response.data && Array.isArray(response.data)) {
-        recommendations.value = response.data;
+    // Interceptor will be changed back to return response.data directly
+    const responseData = await axiosInstance.get('/user/recommendations/food');
+    
+    // --- Remove DEBUG LOGS and use responseData directly ---
+    console.log("API Response Data:", JSON.stringify(responseData)); // Keep one simple log for now
+    
+    const respData = responseData; 
+    const hasSuccess = respData && typeof respData === 'object' && respData.hasOwnProperty('success');
+    const successValue = hasSuccess ? respData.success : undefined;
+    const hasData = respData && typeof respData === 'object' && respData.hasOwnProperty('data');
+    const dataValue = hasData ? respData.data : undefined;
+    const isDataArray = Array.isArray(dataValue);
+    
+    // Simplified logic using stricter checks from before
+    if (respData && successValue === true && isDataArray) {
+        recommendations.value = dataValue;
         console.log("Fetched recommendations:", recommendations.value);
+        recommendationError.value = null; 
+    } else if (respData && successValue === false) { 
+        console.warn("Backend Failure:", JSON.stringify(respData)); 
+        recommendations.value = []; 
+        recommendationError.value = respData.message || '获取推荐失败。'; 
     } else {
-        // Handle cases where response is valid but data format is unexpected
-        console.warn("Received unexpected data format for recommendations:", response.data);
+        console.warn("Unexpected Format:", JSON.stringify(respData));
         recommendations.value = [];
         recommendationError.value = '无法解析推荐数据格式。';
     }

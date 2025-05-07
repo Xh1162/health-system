@@ -264,51 +264,105 @@ def upload_avatar():
 
 @user_bp.route('/recommendations/food', methods=['GET'])
 def get_food_recommendations():
-    """获取随机的食物推荐组合 (从 is_recommended=True 的 FoodItem 中选取)"""
+    """获取模拟的早、中、晚餐食物推荐组合"""
     try:
-        # 定义需要的类别和前端模板中使用的键名
-        required_categories = {
-            'protein': 'mainDish',   # 假设 'protein' 类别对应主菜
-            'staple': 'stapleFood',  # 假设 'staple' 类别对应主食
-            'vegetable': 'vegetable', # 假设 'vegetable' 类别对应蔬菜
-            'fruit': 'fruit'        # 假设 'fruit' 类别对应水果
-            # 注意：这里的类别名称 ('protein', 'staple'...) 需要与数据库中 FoodItem.category 的实际值匹配
-        }
-
-        recommendations = {}
         # 查询所有被标记为推荐的食物项
         all_recommended_items = FoodItem.query.filter_by(is_recommended=True).all()
 
         if not all_recommended_items:
-            # Return success=True but empty data, let frontend handle 'no recommendations'
-            return jsonify({'success': True, 'data': {}, 'message': '没有可推荐的食物项'}) 
+            # 如果没有任何推荐项，返回空列表
+            return jsonify({'success': True, 'data': [], 'message': '数据库中没有可推荐的食物项'}) 
 
         # 按类别分组
         items_by_category = {}
         for item in all_recommended_items:
-            # Ensure item has category and to_dict method
             if hasattr(item, 'category') and item.category and hasattr(item, 'to_dict'): 
                 if item.category not in items_by_category:
                     items_by_category[item.category] = []
-                items_by_category[item.category].append(item.to_dict()) 
+                items_by_category[item.category].append(item.name) # 只存储名字即可
             else:
-                 print(f"警告: 食物项 ID {item.id if hasattr(item, 'id') else '未知'} 缺少 category 或 to_dict 方法，已跳过。")
+                print(f"警告: 食物项 ID {item.id if hasattr(item, 'id') else '未知'} 缺少 category 或 to_dict 方法，已跳过。")
+        
+        recommendations_list = []
+        
+        # --- 生成早餐推荐 ---
+        breakfast_content = []
+        # 尝试选主食 (假设类别为 'staple', 'bread', 'cereal')
+        staple_cats = ['staple', 'bread', 'cereal']
+        available_staples = [name for cat in staple_cats if cat in items_by_category for name in items_by_category[cat]]
+        if available_staples:
+            breakfast_content.append(random.choice(available_staples))
+        # 尝试选蛋白质/饮品 (假设类别为 'protein', 'dairy', 'drink')
+        protein_cats = ['protein', 'dairy', 'drink', 'egg']
+        available_proteins = [name for cat in protein_cats if cat in items_by_category for name in items_by_category[cat]]
+        if available_proteins:
+            breakfast_content.append(random.choice(available_proteins))
+        # 尝试选水果 (假设类别为 'fruit')
+        if 'fruit' in items_by_category and items_by_category['fruit']:
+             breakfast_content.append(random.choice(items_by_category['fruit']))
+             
+        if breakfast_content:
+            recommendations_list.append({
+                'meal_time': '早餐',
+                'content': '、'.join(breakfast_content),
+                'calories': None # 暂时不计算卡路里
+            })
 
+        # --- 生成午餐推荐 ---
+        lunch_content = []
+        # 尝试选主食
+        if available_staples: # Use staples found earlier
+            lunch_content.append(random.choice(available_staples))
+        # 尝试选主菜 (假设类别 'meat', 'fish', 'poultry', 'protein')
+        main_dish_cats = ['meat', 'fish', 'poultry', 'protein', 'tofu']
+        available_main = [name for cat in main_dish_cats if cat in items_by_category for name in items_by_category[cat]]
+        if available_main:
+            lunch_content.append(random.choice(available_main))
+        # 尝试选蔬菜 (假设类别 'vegetable')
+        if 'vegetable' in items_by_category and items_by_category['vegetable']:
+            lunch_content.append(random.choice(items_by_category['vegetable']))
+        
+        if lunch_content:
+             recommendations_list.append({
+                'meal_time': '午餐',
+                'content': '、'.join(lunch_content),
+                'calories': None
+            })
 
-        # 为每个需要的类别随机选择一个
-        for db_category, key_name in required_categories.items():
-            if db_category in items_by_category and items_by_category[db_category]:
-                recommendations[key_name] = random.choice(items_by_category[db_category])
-            else:
-                # 如果某个类别没有推荐项，设置为 None
-                recommendations[key_name] = None
-                print(f"警告：类别 '{db_category}' 中没有找到可推荐的食物项。")
+        # --- 生成晚餐推荐 ---
+        dinner_content = []
+        # 晚餐类似午餐，但可以尝试选择不同的项目
+        if available_staples:
+            dinner_content.append(random.choice(available_staples))
+        if available_main:
+            dinner_content.append(random.choice(available_main))
+        if 'vegetable' in items_by_category and items_by_category['vegetable']:
+            dinner_content.append(random.choice(items_by_category['vegetable']))
+        # 可以加个汤 (假设类别 'soup')
+        if 'soup' in items_by_category and items_by_category['soup']:
+             dinner_content.append(random.choice(items_by_category['soup']))
+             
+        if dinner_content:
+             recommendations_list.append({
+                'meal_time': '晚餐',
+                'content': '、'.join(dinner_content),
+                'calories': None
+            })
 
-        # 返回成功响应
-        return jsonify({
+        # --- 在 return 之前加入这行 print ---
+        # print(">>> DEBUG: Preparing to return:", {'success': True, 'data': recommendations_list})
+
+        response_object = jsonify({  # 将 jsonify 结果赋给变量
             'success': True,
-            'data': recommendations # 返回 {mainDish: {...}, stapleFood: {...}, ...} 结构
+            'data': recommendations_list
         })
+        
+        # 打印 Flask Response 对象的详细信息
+        print(">>> DEBUG: Flask Response Headers:", response_object.headers)
+        print(">>> DEBUG: Flask Response Status Code:", response_object.status_code)
+        print(">>> DEBUG: Flask Response Data (raw bytes):", response_object.get_data()) 
+        
+        return response_object # 返回创建的 Response 对象
 
     except Exception as e:
         print(f"获取食物推荐时出错: {e}")

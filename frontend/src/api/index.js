@@ -58,10 +58,10 @@ api.interceptors.response.use(
       console.log('API响应成功:', {
         url: response.config.url,
         status: response.status,
-        data: response.data
+        data: response.data // Log original data
       })
     }
-    return response.data
+    return response.data;
   },
   error => {
     // 错误日志在所有环境中都记录，但可以简化
